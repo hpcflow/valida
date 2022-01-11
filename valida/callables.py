@@ -30,7 +30,7 @@ def not_in(trial_datum, value) -> bool:
     return trial_datum not in value
 
 
-def in_range(trial_datum, lower, upper):
+def in_range(trial_datum, lower, upper) -> bool:
     return trial_datum in range(lower, upper)
 
 
