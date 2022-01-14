@@ -4,78 +4,13 @@ from valida.conditions import (
     Value,
     Key,
     Index,
-    Length,
-    DType,
     NullCondition,
-    And,
-    Or,
-    Xor,
+    ConditionAnd,
+    ConditionOr,
+    ConditionXor,
 )
-
-
-def test_is_like_methods_on_single_condition():
-
-    vc1 = Value.equal_to(1)
-    kc1 = Key.equal_to(1)
-    ic1 = Index.equal_to(1)
-
-    assert vc1.is_value_like == True
-    assert vc1.is_key_like == False
-    assert vc1.is_index_like == False
-
-    assert kc1.is_key_like == True
-    assert kc1.is_value_like == False
-    assert kc1.is_index_like == False
-
-    assert ic1.is_index_like == True
-    assert ic1.is_value_like == False
-    assert ic1.is_key_like == False
-
-
-def test_is_like_methods_on_binary_condition_single_datum_type():
-
-    vc1 = Value.equal_to(1)
-    vc2 = Value.equal_to(2)
-
-    kc1 = Key.equal_to(1)
-    kc2 = Key.equal_to(2)
-
-    ic1 = Index.equal_to(1)
-    ic2 = Index.equal_to(2)
-
-    vcA = vc1 | vc2
-    kcA = kc1 | kc2
-    icA = ic1 | ic2
-
-    assert vcA.is_value_like == True
-    assert vcA.is_key_like == False
-    assert vcA.is_index_like == False
-
-    assert kcA.is_value_like == False
-    assert kcA.is_key_like == True
-    assert kcA.is_index_like == False
-
-    assert icA.is_value_like == False
-    assert icA.is_key_like == False
-    assert icA.is_index_like == True
-
-
-def test_is_like_methods_on_binary_conditions_mixed_datum_types():
-
-    vc1 = Value.equal_to(1)
-    kc1 = Key.equal_to(1)
-    ic1 = Index.equal_to(1)
-
-    mc1 = vc1 | kc1
-    mc2 = vc1 | ic1
-
-    assert mc1.is_value_like == True
-    assert mc1.is_key_like == False
-    assert mc1.is_index_like == False
-
-    assert mc2.is_value_like == True
-    assert mc2.is_key_like == False
-    assert mc2.is_index_like == False
+from valida.datapath import ListValue, MapValue
+from valida.errors import InvalidCallable
 
 
 def test_mixed_key_index_binary_condition_raises_type_error():
@@ -97,48 +32,14 @@ def test_mixed_key_index_second_order_binary_condition_raises_type_error():
         mc1 | mc2
 
 
-def test_from_pre_processor_class_value_length():
-    assert Value.length == Value._from_pre_processor_class(Length)
-
-
-def test_from_pre_processor_class_value_dtype():
-    assert Value.dtype == Value._from_pre_processor_class(DType)
-
-
-def test_from_pre_processor_class_key_dtype():
-    assert Key.dtype == Key._from_pre_processor_class(DType)
-
-
-def test_value_to_key():
-    assert Value.equal_to(1).to_key() == Key.equal_to(1)
-
-
-def test_value_length_to_key():
-    assert Value.length.equal_to(1).to_key() == Key.length.equal_to(1)
-
-
-def test_value_dtype_to_key():
-    assert Value.dtype.equal_to(str).to_key() == Key.dtype.equal_to(str)
-
-
-def test_value_length_to_index_raises_type_error():
-    with pytest.raises(TypeError):
-        Value.length.equal_to(1).to_index()
-
-
-def test_value_dtype_to_index_raises_type_error():
-    with pytest.raises(TypeError):
-        Value.dtype.equal_to(str).to_index()
-
-
 def test_null_condition_does_not_generate_binary_condition():
     c1 = Value.equal_to(1)
-    assert And(c1, NullCondition()) == c1
-    assert And(NullCondition(), c1) == c1
-    assert Or(c1, NullCondition()) == c1
-    assert Or(NullCondition(), c1) == c1
-    assert Xor(c1, NullCondition()) == c1
-    assert Xor(NullCondition(), c1) == c1
+    assert ConditionAnd(c1, NullCondition()) == c1
+    assert ConditionAnd(NullCondition(), c1) == c1
+    assert ConditionOr(c1, NullCondition()) == c1
+    assert ConditionOr(NullCondition(), c1) == c1
+    assert ConditionXor(c1, NullCondition()) == c1
+    assert ConditionXor(NullCondition(), c1) == c1
 
 
 def test_null_condition_filter_includes_all_list_items():
@@ -209,6 +110,32 @@ def test_evalable_repr_for_simple_conditions():
         assert eval(repr(i)) == i
 
 
+def test_evalable_repr_for_simple_list_value():
+
+    ind_conds = (None, 0, Index.equal_to(0))
+    val_conds = (None, 1, Value.equal_to(1))
+    labels = (None, "my_list_value")
+
+    for i in ind_conds:
+        for j in val_conds:
+            for k in labels:
+                list_val = ListValue(index=i, value=j, label=k)
+                assert eval(repr(list_val)) == list_val
+
+
+def test_evalable_repr_for_simple_map_value():
+
+    key_conds = (None, 0, Key.equal_to(0))
+    val_conds = (None, 1, Value.equal_to(1))
+    labels = (None, "my_list_value")
+
+    for i in key_conds:
+        for j in val_conds:
+            for k in labels:
+                map_val = MapValue(key=i, value=j, label=k)
+                assert eval(repr(map_val)) == map_val
+
+
 def test_binary_op_equality():
 
     bo1 = Value.eq(1) & Value.lte(2)
@@ -246,3 +173,79 @@ def test_truthy_falsy_for_integers():
     data = [0, 1, 2]
     assert Value.truthy().filter(data).get_data() == [1, 2]
     assert Value.falsy().filter(data).get_data() == [0]
+
+
+def test_value_null_condition_list_value():
+
+    assert ListValue() == ListValue(value=NullCondition())
+
+
+def test_value_null_condition_map_value():
+
+    assert MapValue() == MapValue(value=NullCondition())
+
+
+def test_raise_on_defined_callable_not_returning_bool():
+    def my_callable(x):
+        return None
+
+    with pytest.raises(InvalidCallable):
+        Value(my_callable).test(1)
+
+
+def test_raise_on_lambda_callable_not_returning_bool():
+
+    my_callable = lambda x: None
+    with pytest.raises(InvalidCallable):
+        Value(my_callable).test(1)
+
+
+def test_is_key_like_condition():
+    assert Key.eq(1).is_key_like
+
+
+def test_is_key_like_condition_binary():
+    k1 = Key.eq(1)
+    k2 = Key.gt(2)
+    assert (k1 | k2).is_key_like
+
+
+def test_is_key_like_condition_ternary():
+    k1 = Key.eq(1)
+    k2 = Key.gt(2)
+    k3 = Key.lt(10)
+    assert (k1 | k2 & k3).is_key_like
+
+
+def test_is_index_like_condition():
+    assert Index.eq(1).is_index_like
+
+
+def test_is_index_like_condition_binary():
+    k1 = Index.eq(1)
+    k2 = Index.gt(2)
+    assert (k1 | k2).is_index_like
+
+
+def test_is_index_like_condition_ternary():
+    k1 = Index.eq(1)
+    k2 = Index.gt(2)
+    k3 = Index.lt(10)
+    assert (k1 | k2 & k3).is_index_like
+
+
+def test_is_value_like_condition():
+    assert Value.eq(1).is_value_like
+
+
+def test_is_value_like_condition_binary():
+    k1 = Value.eq(1)
+    k2 = Value.gt(2)
+    assert (k1 | k2).is_value_like
+
+
+def test_is_value_like_condition_ternary():
+    k1 = Value.eq(1)
+    k2 = Value.gt(2)
+    k3 = Value.lt(10)
+    assert (k1 | k2 & k3).is_value_like

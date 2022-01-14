@@ -31,7 +31,7 @@ def list_data_expected_truth_tables():
         "conditions": (c1a, c1b, c1c),
         "binary_conditions": (c2a, c2b, c2c),
         "ternary_conditions": (c3a, c3b, c3c),
-        "truth_table_entries": (tt1a, tt1b, tt1c),
+        "truth_tables": ([tt1a], [tt1b], [tt1c]),
         "binary_truth_tables": (b_tta, b_ttb, b_ttc),
         "ternary_truth_tables": (
             [
@@ -42,17 +42,17 @@ def list_data_expected_truth_tables():
                 ("or", [False, False, True, False]),
             ],
             [
+                tt1a,
                 tt1b,
                 tt1c,
                 ("and", [False, False, True, False]),
-                tt1a,
                 ("or", [True, False, True, False]),
             ],
             [
+                tt1a,
                 tt1b,
                 tt1c,
                 ("or", [False, False, True, True]),
-                tt1a,
                 ("and", [False, False, False, False]),
             ],
         ),
@@ -78,10 +78,10 @@ def list_data_actual_truth_tables(list_data_expected_truth_tables):
     data = list_data_expected_truth_tables["data"]
 
     return {
-        "truth_table_entries": (
-            c1a.filter(data).get_truth_table_entry(),
-            c1b.filter(data).get_truth_table_entry(),
-            c1c.filter(data).get_truth_table_entry(),
+        "truth_tables": (
+            c1a.filter(data).truth_table,
+            c1b.filter(data).truth_table,
+            c1c.filter(data).truth_table,
         ),
         "binary_truth_tables": (
             c2a.filter(data).truth_table,
@@ -101,16 +101,16 @@ def test_filter_truth_tables(
 ):
 
     assert (
-        list_data_expected_truth_tables["truth_table_entries"][0]
-        == list_data_actual_truth_tables["truth_table_entries"][0]
+        list_data_expected_truth_tables["truth_tables"][0]
+        == list_data_actual_truth_tables["truth_tables"][0]
     )
     assert (
-        list_data_expected_truth_tables["truth_table_entries"][1]
-        == list_data_actual_truth_tables["truth_table_entries"][1]
+        list_data_expected_truth_tables["truth_tables"][1]
+        == list_data_actual_truth_tables["truth_tables"][1]
     )
     assert (
-        list_data_expected_truth_tables["truth_table_entries"][2]
-        == list_data_actual_truth_tables["truth_table_entries"][2]
+        list_data_expected_truth_tables["truth_tables"][2]
+        == list_data_actual_truth_tables["truth_tables"][2]
     )
 
 

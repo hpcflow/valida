@@ -1,131 +1,15 @@
-import copy
 from functools import partial
-
-import valida.callables as call_funcs
-from valida.filters import FilteredMapData, FilteredListData
-from valida.utils import (
-    classproperty,
-    make_pre_processing_mixin_class,
-    null_condition_binary_check,
-)
+import enum
+import operator
 
 
-class ConditionLike:
-    """Class to represent one or more testable conditions to be applied to some data."""
-
-    def __init__(self, is_inverted=False):
-        self.is_inverted = is_inverted
-
-    def __or__(self, other):
-        return Or(self, other)
-
-    def __and__(self, other):
-        return And(self, other)
-
-    def __invert__(self):
-        obj = copy.deepcopy(self)
-        obj.is_inverted = not self.is_inverted
-        return obj
-
-    def __xor__(self, other):
-        return Xor(self, other)
-
-    @staticmethod
-    def and_(cond_1, cond_2):
-        return cond_1 & cond_2
-
-    @staticmethod
-    def or_(cond_1, cond_2):
-        return cond_1 | cond_2
-
-    @staticmethod
-    def not_(cond):
-        return ~cond
-
-    @staticmethod
-    def xor_(cond_1, cond_2):
-        return cond_1 ^ cond_2
-
-    def _is_like(self, cls):
-        """Check a ConditionLike is either a Condition of the given superclass, or a
-        combination of `BinaryOp`s that are exclusively of the given superclass."""
-
-        if isinstance(self, BinaryOp) and issubclass(type(self.conditions[0]), cls):
-            return True
-        elif issubclass(type(self), cls):
-            return True
-        else:
-            return False
-
-    def _to_like(self, cls):
-
-        if self._is_like(cls):
-            return self
-
-        elif not self.is_value_like:
-            raise TypeError(
-                "A `ConditionLike` must be value-like to be converted to being index- or "
-                "key-like."
-            )
-
-        if isinstance(self, BinaryOp):
-            new_binary_op = NullCondition()
-            for condition_i in self.conditions:
-                new_binary_op = self.__class__(
-                    new_binary_op, condition_i._to_other_datum_part_condition(cls)
-                )
-            cnd_like = new_binary_op
-        else:
-            cnd_like = self._to_other_datum_part_condition(cls)
-
-        return cnd_like
-
-    @property
-    def is_value_like(self):
-        """Is the ConditionLike not all key-like or all index-like conditons?"""
-        return not self.is_key_like and not self.is_index_like
-
-    @property
-    def is_key_like(self):
-        return self._is_like(Key)
-
-    @property
-    def is_index_like(self):
-        return self._is_like(Index)
-
-    @property
-    def is_null(self):
-        return isinstance(self, NullCondition)
-
-    def to_key_like(self):
-        """Convert a value-like ConditionLike to a key-like ConditionLike."""
-        return self._to_like(Key)
-
-    def to_index_like(self):
-        """Convert a value-like ConditionLike to a index-like ConditionLike."""
-        return self._to_like(Index)
-
-    def flatten(self):
-        """Get a flattened list of all conditions."""
-        conditions = []
-        operators = []
-        if isinstance(self, BinaryOp):
-            for idx, condition in enumerate(self.conditions):
-                if isinstance(condition, BinaryOp):
-                    cnd, ops = condition.flatten()
-                    conditions.extend(cnd)
-                    operators.extend(ops)
-                else:
-                    conditions.append(condition)
-                    if idx == 0:
-                        operators.append(self.__class__.__name__)
-        else:
-            conditions.append(self)
-
-        return conditions, operators
+from valida import callables as call_funcs
+from valida.data import Data, TestResultDescription, FilteredData
+from valida.errors import InvalidCallable
+from valida.utils import classproperty, null_condition_binary_check
 
 
-class Callables:
+class GeneralCallables:
     @classmethod
     def equal_to(cls, value):
         return cls(call_funcs.equal_to, value=value)
@@ -166,6 +50,39 @@ class Callables:
     def not_in_range(cls, value):
         return cls(call_funcs.not_in_range, value=value)
 
+    @classmethod
+    def equal_to_approx(cls, value, tolerance=1e-8):
+        return cls(call_funcs.equal_to_approx, value=value, tolerance=tolerance)
+
+    @classmethod
+    def truthy(cls):
+        return cls(call_funcs.truthy)
+
+    @classmethod
+    def falsy(cls):
+        return cls(call_funcs.falsy)
+
+    @classmethod
+    def null(cls):
+        return cls(call_funcs.null)
+
+    # Aliases for convenience:
+    eq = equal_to
+    lt = less_than
+    gt = greater_than
+    lte = less_than_or_equal_to
+    gte = greater_than_or_equal_to
+
+    OP_SYMBOL_MAP = {
+        "==": equal_to,
+        "<": less_than,
+        ">": greater_than,
+        "<=": less_than_or_equal_to,
+        ">=": greater_than_or_equal_to,
+    }
+
+
+class MapCallables:
     @classmethod
     def keys_contain(cls, key):
         return cls(call_funcs.keys_contain, key=key)
@@ -210,39 +127,68 @@ class Callables:
     def items_contain(cls, **items):
         return cls(call_funcs.items_contain, **items)
 
-    @classmethod
-    def equal_to_approx(cls, value, tolerance=1e-8):
-        return cls(call_funcs.equal_to_approx, value=value, tolerance=tolerance)
 
-    @classmethod
-    def truthy(cls):
-        return cls(call_funcs.truthy)
-
-    @classmethod
-    def falsy(cls):
-        return cls(call_funcs.falsy)
-
-    @classmethod
-    def null(cls):
-        return cls(call_funcs.null)
-
-    # Aliases for convenience:
-    eq = equal_to
-    lt = less_than
-    gt = greater_than
-    lte = less_than_or_equal_to
-    gte = greater_than_or_equal_to
-
-    OP_SYMBOL_MAP = {
-        "==": equal_to,
-        "<": less_than,
-        ">": greater_than,
-        "<=": less_than_or_equal_to,
-        ">=": greater_than_or_equal_to,
-    }
+class AllCallables(GeneralCallables, MapCallables):
+    pass
 
 
-class Condition(ConditionLike, Callables):
+class ConditionLike:
+    def __or__(self, other):
+        return ConditionOr(self, other)
+
+    def __and__(self, other):
+        return ConditionAnd(self, other)
+
+    def __xor__(self, other):
+        return ConditionXor(self, other)
+
+    @property
+    def is_null(self):
+        return isinstance(self, NullCondition)
+
+    @property
+    def is_key_like(self):
+        return all(isinstance(i, Key) for i in self.flatten()[0])
+
+    @property
+    def is_index_like(self):
+        return all(isinstance(i, Index) for i in self.flatten()[0])
+
+    @property
+    def is_value_like(self):
+        return all(isinstance(i, Value) for i in self.flatten()[0])
+
+    def filter(self, data):
+        if not isinstance(data, Data):
+            data = Data(data)
+        return self._filter(data)
+
+    def test(self, datum):
+        return self.filter([datum]).result[0]
+
+    def test_all(self, data):
+        return all(self.filter(data).result)
+
+    def flatten(self):
+        """Get a flattened list of all conditions."""
+        all_cnds = []
+        all_ops = []
+
+        try:
+            for idx, cnd_i in enumerate(self.children):
+                flatten_i = cnd_i.flatten()
+                all_cnds.extend(flatten_i[0])
+                all_ops.extend(flatten_i[1])
+                if idx == 0:
+                    all_ops.append(self.FLATTEN_SYMBOL)
+
+        except AttributeError:
+            all_cnds.append(self)
+
+        return all_cnds, all_ops
+
+
+class Condition(ConditionLike):
 
     PRE_PROCESSOR = None
 
@@ -260,16 +206,9 @@ class Condition(ConditionLike, Callables):
 
     def __repr__(self):
 
-        out = f"{self.__class__.__name__}"
-        out += f".{self.callable_name}"
-
-        if len(self.callable_kwargs) == 1:
-            out += f"({list(self.callable_kwargs.values())[0]!r}"
-        else:
-            args = [f"{k}={v!r}" for k, v in self.callable_kwargs.items()]
-            out += "(" + ", ".join(args)
-
-        out += ")"
+        out = f"{self.__class__.__name__}.{self.callable_name}"
+        args = [f"{k}={v!r}" for k, v in self.callable_kwargs.items()]
+        out += "(" + ", ".join(args) + ")"
 
         return out
 
@@ -282,98 +221,60 @@ class Condition(ConditionLike, Callables):
         """Return data used in __eq__"""
         return (self.callable.func, self.callable_name, self.callable_kwargs)
 
-    @classmethod
-    def _from_pre_processor_class(cls, pre_processor_class):
-        mixin_cls = pre_processor_class.MIXIN_CLASS
-        if not issubclass(cls, mixin_cls):
-            raise TypeError(
-                f'Cannot combine pre-processor "{pre_processor_class.__name__}" '
-                f'with "{cls.__name__}" condition.'
-            )
-        return make_pre_processing_mixin_class(pre_processor_class, cls)
+    def _filter(self, data):
 
-    def test(self, datum):
-        """Test if `datum` matches the condition."""
-        return bool(self.callable(datum))
+        processed = []
+        result = []
+        failure = []
 
-    def filter(self, data):
-        """Return a subset of `data` that matches the condition."""
-        if isinstance(data, list):
-            return FilteredListData(data, [self.test(datum) for datum in data], [self])
-        elif isinstance(data, dict):
-            return FilteredMapData(
-                data, {k: self.test(v) for k, v in data.items()}, [self]
-            )
+        for datum in getattr(data, self.DATUM_TYPE.value)():
 
+            failure_i = TestResultDescription.NULL
+            try:
+                processed_i = self.PRE_PROCESSOR(datum) if self.PRE_PROCESSOR else datum
+                is_valid_i = True
+                failure_i = None
+            except TypeError:
+                processed_i = None
+                is_valid_i = False
+                failure_i = TestResultDescription.PRE_PROCESSING_ERROR
 
-class LengthMixin:
-    """Allows us to pick for which Condition classes a `.length` attribute makes sense."""
+            if is_valid_i:
 
-    @classproperty
-    def length(cls):
-        return make_pre_processing_mixin_class(Length, cls)
+                try:
+                    result_i = self.callable(processed_i)
 
+                    if not isinstance(result_i, bool):
+                        raise InvalidCallable(
+                            f"Callable {self.callable} did not return a boolean."
+                        )
+                    if not result_i:
+                        failure_i = TestResultDescription.CALLABLE_FALSE
 
-class DTypeMixin:
-    """Allows us to pick for which Condition classes a `.dtype` attribute makes sense."""
+                except (TypeError, AttributeError):
+                    result_i = False
+                    failure_i = TestResultDescription.CALLABLE_ERROR
 
-    @classproperty
-    def dtype(cls):
-        return make_pre_processing_mixin_class(DType, cls)
+            else:
+                result_i = False
 
+            processed.append(processed_i)
+            result.append(result_i)
+            failure.append(failure_i)
 
-class Length:
-
-    MIXIN_CLASS = LengthMixin  # used to check valid Condition/pre-processor combination
-
-    def test(self, trial_datum):
-        try:
-            len_dat = len(trial_datum)
-        except TypeError:
-            return False
-        return super().test(len_dat)
+        return FilteredData(self, data, processed, result, failure)
 
 
-class DType:
+class FilterDatumType(enum.Enum):
 
-    MIXIN_CLASS = DTypeMixin  # used to check valid Condition/pre-processor combination
-
-    def test(self, trial_datum):
-        return super().test(type(trial_datum))
-
-
-class Value(Condition, LengthMixin, DTypeMixin):
-    def _to_other_datum_part_condition(self, cls):
-        if self.PRE_PROCESSOR:
-            cls = cls._from_pre_processor_class(self.PRE_PROCESSOR)
-        return cls(self.callable, **self.callable_kwargs)
-
-    def to_key(self):
-        return self._to_other_datum_part_condition(Key)
-
-    def to_index(self):
-        return self._to_other_datum_part_condition(Index)
-
-
-class Index(Condition):
-    def filter(self, data):
-        """Return a subset of `data` that matches the condition."""
-        return FilteredListData(
-            data, [bool(self.callable(idx)) for idx, _ in enumerate(data)], [self]
-        )
-
-    def test(self, datum):
-        """Not allowed, since the index of a list item is unknown to the item itself."""
-        raise NotImplementedError
-
-
-class Key(Condition, LengthMixin, DTypeMixin):
-    def filter(self, data):
-        return FilteredMapData(data, {k: self.test(k) for k in data.keys()}, [self])
+    KEYS = "keys"
+    VALUES = "values"
 
 
 class NullCondition(Condition):
     """Class to represent a null condition that all data satisfies."""
+
+    DATUM_TYPE = FilterDatumType.VALUES
 
     def __init__(self, *args, **kwargs):
         super().__init__(call_funcs.null)
@@ -382,84 +283,149 @@ class NullCondition(Condition):
         return f"{self.__class__.__name__}()"
 
 
-class BinaryOp(ConditionLike):
-    """Class to represent the logical binary combination of two `Condition`s."""
-
+class ConditionBinaryOp(ConditionLike):
     def __new__(cls, *conditions):
         """If one of the conditions is a NullCondition, then abort object construction,
         and just return the non-null condition."""
         return null_condition_binary_check(*conditions) or super().__new__(cls)
 
-    def __init__(self, *conditions, is_inverted=False):
+    def __init__(self, *conditions):
 
-        super().__init__(is_inverted=is_inverted)
+        super().__init__()
 
-        self.conditions = conditions
+        self.children = conditions
 
         # Nonsensical to combine key-like and index-like conditions:
         flattened_conds = self.flatten()[0]
-        num_key_likes = sum(i.is_key_like for i in flattened_conds)
-        num_index_likes = sum(i.is_index_like for i in flattened_conds)
+        num_key_likes = sum(isinstance(i, KeyLike) for i in flattened_conds)
+        num_index_likes = sum(isinstance(i, IndexLike) for i in flattened_conds)
         if num_key_likes > 0 and num_index_likes > 0:
             raise TypeError("Cannot combine `Key` and `Index` conditions.")
 
     def __repr__(self):
-        arg_list = [repr(i) for i in self.conditions]
-        if self.is_inverted:
-            arg_list.append(f"is_inverted={self.is_inverted!r}")
-        out = f"{self.__class__.__name__}(" f'{", ".join(arg_list)}' f")"
-        return out
+        return f"{self.__class__.__name__}({self.children[0]}, {self.children[1]})"
 
     def __eq__(self, other):
         if type(self) is type(other) and (
             (
-                self.conditions[0] == other.conditions[0]
-                and self.conditions[1] == other.conditions[1]
+                self.children[0] == other.children[0]
+                and self.children[1] == other.children[1]
             )
             or (
-                self.conditions[0] == other.conditions[1]
-                and self.conditions[1] == other.conditions[0]
+                self.children[0] == other.children[1]
+                and self.children[1] == other.children[0]
             )
         ):
             return True
         return False
 
-    @property
-    def is_map_filterable(self):
-        return self.conditions[0].is_map_filterable
+    def _filter(self, data, binary_op):
+        return binary_op(*(i._filter(data) for i in self.children))
 
 
-class And(BinaryOp):
-    """Class to represent the logical AND combination of two `ConditionLike`s."""
+class ConditionAnd(ConditionBinaryOp):
+    FLATTEN_SYMBOL = "and"
 
-    def test(self, datum) -> bool:
-        """Test if `datum` matches the condition."""
-        return all(bool(c.test(datum)) for c in self.conditions)
+    def _filter(self, data):
+        return super()._filter(data, operator.and_)
+
+
+class ConditionOr(ConditionBinaryOp):
+    FLATTEN_SYMBOL = "or"
+
+    def _filter(self, data):
+        return super()._filter(data, operator.or_)
+
+
+class ConditionXor(ConditionBinaryOp):
+    FLATTEN_SYMBOL = "xor"
+
+    def _filter(self, data):
+        return super()._filter(data, operator.xor)
+
+
+class LengthPreProcessor:
+    PRE_PROCESSOR = len
+
+
+class DataTypePreProcessor:
+    PRE_PROCESSOR = type
+
+
+class ValueLike(Condition):
+    DATUM_TYPE = FilterDatumType.VALUES
+
+
+class KeyLike(Condition):
+    DATUM_TYPE = FilterDatumType.KEYS
 
     def filter(self, data):
-        """Return a subset of `data` that matches the condition."""
-        return self.conditions[0].filter(data) & self.conditions[1].filter(data)
 
+        if (isinstance(data, Data) and data.is_list) or not isinstance(
+            data, (Data, dict)
+        ):
+            raise TypeError("`Key` condition can only filter a mapping (i.e. a dict).")
 
-class Or(BinaryOp):
-    """Class to represent the logical OR combination of two `ConditionLike`s."""
-
-    def test(self, datum) -> bool:
-        """Test if `datum` matches the condition."""
-        return any(bool(c.test(datum)) for c in self.conditions)
-
-    def filter(self, data):
-        """Return a subset of `data` that matches the condition."""
-        return self.conditions[0].filter(data) | self.conditions[1].filter(data)
-
-
-class Xor(BinaryOp):
-    """Class to represent the logical XOR combination of two `ConditionLike`s."""
+        return super().filter(data)
 
     def test(self, datum):
-        """Test if `datum` matches the condition."""
-        return sum(bool(c.test(datum)) for c in self.conditions) == 1
+        """For testing a single-item mapping."""
+        if len(datum) != 1:
+            raise TypeError("Test can only be used to test a single-item mapping.")
+        return self.filter(datum).result[0]
+
+
+class IndexLike(Condition):
+    DATUM_TYPE = FilterDatumType.KEYS
 
     def filter(self, data):
-        """Return a subset of `data` that matches the condition."""
-        return self.conditions[0].filter(data) ^ self.conditions[1].filter(data)
+
+        if (isinstance(data, Data) and not data.is_list) or not isinstance(
+            data, (Data, list)
+        ):
+            raise TypeError("`Index` condition can only filter a list.")
+        return super().filter(data)
+
+    def test(self, datum):
+        """Not allowed, since the index of a list item is unknown to the item itself."""
+        raise NotImplementedError
+
+
+class Value(ValueLike, AllCallables):
+    @classproperty
+    def length(cls):
+        return ValueLength
+
+    @classproperty
+    def dtype(cls):
+        return ValueDataType
+
+
+class ValueLength(LengthPreProcessor, ValueLike, GeneralCallables):
+    pass
+
+
+class ValueDataType(DataTypePreProcessor, ValueLike, GeneralCallables):
+    pass
+
+
+class Key(KeyLike, AllCallables):
+    @classproperty
+    def length(cls):
+        return KeyLength
+
+    @classproperty
+    def dtype(cls):
+        return KeyDataType
+
+
+class KeyLength(LengthPreProcessor, KeyLike, GeneralCallables):
+    pass
+
+
+class KeyDataType(DataTypePreProcessor, KeyLike, GeneralCallables):
+    pass
+
+
+class Index(IndexLike, GeneralCallables):
+    pass

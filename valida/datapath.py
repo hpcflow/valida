@@ -1,4 +1,5 @@
 from valida.conditions import ConditionLike, NullCondition, Index, Value, Key
+from valida.errors import ValidationError
 
 
 class DataPath:
@@ -85,8 +86,9 @@ class ContainerItem:
 
     def __repr__(self):
         return (
-            f"{self.__class__.__name__}"
-            f'{f"({self.condition!r})" if not isinstance(self.condition, NullCondition) else ""}'
+            f"{self.__class__.__name__}(condition={self.condition!r}"
+            f'{f", label={self.label!r}" if self.label else ""}'
+            f")"
         )
 
     def __eq__(self, other):
@@ -121,15 +123,19 @@ class MapValue(ContainerItem):
             condition = NullCondition()
 
         if key is not None:
-            if not isinstance(key, ConditionLike):
-                key = Key.equal_to(key)
-            else:
-                key = key.to_key_like()
+            if not isinstance(key, NullCondition):
+                if not isinstance(key, ConditionLike):
+                    key = Key.equal_to(key)
+                if not key.is_key_like:
+                    raise TypeError("`key` must be a `Key` object.")
             condition = condition & key
 
         if value is not None:
-            if not isinstance(value, ConditionLike):
-                value = Value.equal_to(value)
+            if not isinstance(value, NullCondition):
+                if not isinstance(value, ConditionLike):
+                    value = Value.equal_to(value)
+                if not value.is_value_like:
+                    raise TypeError("`value` must be a `Value` object.")
             condition = condition & value
 
         self.condition = condition
@@ -148,16 +154,44 @@ class ListValue(ContainerItem):
             condition = NullCondition()
 
         if index is not None:
-            if not isinstance(index, ConditionLike):
-                index = Index.equal_to(index)
-            else:
-                index = index.to_index_like()
+            if not isinstance(index, NullCondition):
+                if not isinstance(index, ConditionLike):
+                    index = Index.equal_to(index)
+                if not index.is_index_like:
+                    raise TypeError("`index` must be a `Index` object.")
             condition = condition & index
 
         if value is not None:
-            if not isinstance(value, ConditionLike):
-                value = Value.equal_to(value)
+            if not isinstance(value, NullCondition):
+                if not isinstance(value, ConditionLike):
+                    value = Value.equal_to(value)
+                if not value.is_value_like:
+                    raise TypeError("`value` must be a `Value` object.")
             condition = condition & value
 
         self.condition = condition
         self.label = label
+
+
+class Rule:
+    def __init__(self, data_path, condition):
+
+        self.data_path = data_path
+        self.condition = condition
+
+    def test(self, data):
+        path_data = self.data_path.get_data(data)
+        # TODO: provide rich information about failure (option to raise or to return ValidationFailure object?)
+        if not self.condition.test_all(path_data):
+            raise ValidationError
+        else:
+            return True
+
+
+class Schema:
+    def __init__(self, rules):
+        self.rules = rules
+
+    def test(self, data):
+        for rule in self.rules:
+            rule.test(data)
