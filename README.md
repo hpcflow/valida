@@ -6,6 +6,7 @@
 ![Testing workflow](https://github.com/hpcflow/valida/actions/workflows/test.yml/badge.svg)
 [![Supported python versions](https://img.shields.io/pypi/pyversions/valida "Supported python versions")](https://pypi.org/project/valida)
 [![License](https://img.shields.io/github/license/hpcflow/valida "License")](https://github.com/hpcflow/valida/blob/main/LICENSE)
+[![DOI](https://zenodo.org/badge/446597552.svg)](https://zenodo.org/badge/latestdoi/446597552)
 
 ## Installing
 
