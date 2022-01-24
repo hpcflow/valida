@@ -1,6 +1,11 @@
 import pytest
 
 from valida.conditions import (
+    KeyDataType,
+    KeyLength,
+    ValueDataType,
+    ValueLength,
+    KeyLike,
     Value,
     Key,
     Index,
@@ -8,9 +13,10 @@ from valida.conditions import (
     ConditionAnd,
     ConditionOr,
     ConditionXor,
+    ConditionLike,
 )
-from valida.datapath import ListValue, MapValue
-from valida.errors import InvalidCallable
+from valida.datapath import DataPath, ListValue, MapValue
+from valida.errors import InvalidCallable, MalformedConditionLikeSpec
 
 
 def test_mixed_key_index_binary_condition_raises_type_error():
@@ -44,12 +50,12 @@ def test_null_condition_does_not_generate_binary_condition():
 
 def test_null_condition_filter_includes_all_list_items():
     my_list = [1, 2, 3]
-    assert NullCondition().filter(my_list).get_data() == my_list
+    assert NullCondition().filter(my_list).data == my_list
 
 
 def test_null_condition_filter_includes_all_map_items():
     my_dict = {"a": 1, "b": 2, "c": 3}
-    assert NullCondition().filter(my_dict).get_data() == list(my_dict.values())
+    assert NullCondition().filter(my_dict).data == list(my_dict.values())
 
 
 def test_condition_callable_aliases():
@@ -171,8 +177,8 @@ def test_commutativity_of_binary_ops():
 def test_truthy_falsy_for_integers():
 
     data = [0, 1, 2]
-    assert Value.truthy().filter(data).get_data() == [1, 2]
-    assert Value.falsy().filter(data).get_data() == [0]
+    assert Value.truthy().filter(data).data == [1, 2]
+    assert Value.falsy().filter(data).data == [0]
 
 
 def test_value_null_condition_list_value():
@@ -249,3 +255,252 @@ def test_is_value_like_condition_ternary():
     k2 = Value.gt(2)
     k3 = Value.lt(10)
     assert (k1 | k2 & k3).is_value_like
+
+
+def test_raise_on_unknown_spec_key():
+    with pytest.raises(MalformedConditionLikeSpec):
+        ConditionLike.from_spec({"bad_key": 1})
+
+
+def test_raise_on_unknown_spec_key_binary_op():
+    with pytest.raises(MalformedConditionLikeSpec):
+        ConditionLike.from_spec({"or": [{"bad_key": 1}, {"value.eq": 2}]})
+
+
+def test_raise_on_non_list_argument_to_binary_op():
+    with pytest.raises(MalformedConditionLikeSpec):
+        ConditionLike.from_spec({"or": {"value.eq": 1, "value.eq": 2}})
+
+
+def test_raise_on_non_multiple_keys_in_binary_op_spec():
+    with pytest.raises(MalformedConditionLikeSpec):
+        ConditionLike.from_spec(
+            {
+                "and": [
+                    {
+                        "value.lt": 1,
+                        "value.gt": 2,
+                    }
+                ]
+            }
+        )
+
+
+def test_raise_on_multiple_keys_in_condition_spec():
+    with pytest.raises(MalformedConditionLikeSpec):
+        ConditionLike.from_spec({"value.lt": 2, "value.gt": 0})
+
+
+def test_empty_binary_op_is_null_condition():
+    assert ConditionLike.from_spec({"and": []}) == NullCondition()
+
+
+def test_from_spec_callable_invocation_for_multi_arg_callable():
+    assert ConditionLike.from_spec(
+        {"value.in_range": {"lower": 1, "upper": 2}}
+    ) == ConditionLike.from_spec({"value.in_range": [1, 2]})
+
+
+def test_KeyDataType_is_key_like():
+    assert KeyDataType.equal_to(str).is_key_like
+
+
+def test_KeyLength_is_key_like():
+    assert KeyLength.equal_to(2).is_key_like
+
+
+def test_KeyDataType_is_key_like():
+    assert ValueDataType.equal_to(str).is_value_like
+
+
+def test_KeyDataType_is_key_like():
+    assert ValueLength.equal_to(2).is_value_like
+
+
+def test_equivalence_of_ConditionLike_from_spec_value_dtype_int_spec():
+    assert ConditionLike.from_spec(
+        {"value.dtype.eq": "int"}
+    ) == ConditionLike.from_spec({"value.dtype.eq": int})
+
+
+def test_equivalence_of_ConditionLike_from_spec_value_dtype_float_spec():
+    assert ConditionLike.from_spec(
+        {"value.dtype.eq": "float"}
+    ) == ConditionLike.from_spec({"value.dtype.eq": float})
+
+
+def test_equivalence_of_ConditionLike_from_spec_value_dtype_str_spec():
+    assert ConditionLike.from_spec(
+        {"value.dtype.eq": "str"}
+    ) == ConditionLike.from_spec({"value.dtype.eq": str})
+
+
+def test_equivalence_of_ConditionLike_from_spec_value_dtype_list_spec():
+    assert ConditionLike.from_spec(
+        {"value.dtype.eq": "list"}
+    ) == ConditionLike.from_spec({"value.dtype.eq": list})
+
+
+def test_equivalence_of_ConditionLike_from_spec_value_dtype_dict_spec():
+    assert ConditionLike.from_spec(
+        {"value.dtype.eq": "dict"}
+    ) == ConditionLike.from_spec({"value.dtype.eq": dict})
+
+
+def test_equivalence_of_ConditionLike_from_spec_value_dtype_map_spec():
+    assert ConditionLike.from_spec(
+        {"value.dtype.eq": "map"}
+    ) == ConditionLike.from_spec({"value.dtype.eq": dict})
+
+
+def test_equivalence_of_ConditionLike_from_spec_type_and_dtype():
+    assert ConditionLike.from_spec({"value.type.eq": int}) == ConditionLike.from_spec(
+        {"value.dtype.eq": int}
+    )
+
+
+def test_equivalence_of_ConditionLike_from_spec_length_and_len():
+    assert ConditionLike.from_spec({"value.length.eq": 2}) == ConditionLike.from_spec(
+        {"value.len.eq": 2}
+    )
+
+
+def test_equivalence_of_ConditionLike_from_spec_callable_in_and_in_():
+    assert ConditionLike.from_spec({"value.in": [1, 2]}) == ConditionLike.from_spec(
+        {"value.in_": [1, 2]}
+    )
+
+
+def test_ConditionLike_from_spec_raise_on_missing_callable():
+    with pytest.raises(MalformedConditionLikeSpec):
+        ConditionLike.from_spec({"value": 1})
+
+
+def test_ConditionLike_from_spec_raise_on_missing_callable_with_preprocessor():
+    with pytest.raises(MalformedConditionLikeSpec):
+        ConditionLike.from_spec({"value.length": 1})
+
+
+def test_ConditionLike_from_spec_case_insensitivity_datum_type():
+    assert (
+        ConditionLike.from_spec({"value.eq": 1})
+        == ConditionLike.from_spec({"Value.eq": 1})
+        == ConditionLike.from_spec({"vAlue.eq": 1})
+        == ConditionLike.from_spec({"VALUE.eq": 1})
+    )
+
+
+def test_ConditionLike_from_spec_case_insensitivity_callable_name():
+    assert (
+        ConditionLike.from_spec({"value.eq": 1})
+        == ConditionLike.from_spec({"value.Eq": 1})
+        == ConditionLike.from_spec({"value.eQ": 1})
+        == ConditionLike.from_spec({"value.EQ": 1})
+    )
+
+
+def test_ConditionLike_from_spec_case_insensitivity_preprocessor_name():
+    assert (
+        ConditionLike.from_spec({"value.len.eq": 1})
+        == ConditionLike.from_spec({"value.Len.eq": 1})
+        == ConditionLike.from_spec({"value.lEn.eq": 1})
+        == ConditionLike.from_spec({"value.LEN.eq": 1})
+    )
+
+
+def test_ConditionLike_from_spec_single_arg_callable_DataPath():
+    assert ConditionLike.from_spec(
+        {"value.equal_to": {"path": ("a", "b")}}
+    ) == Value.eq(DataPath("a", "b"))
+
+
+def test_ConditionLike_from_spec_single_arg_callable_DataPath_case_insensitivity():
+    assert (
+        ConditionLike.from_spec({"value.equal_to": {"path": ("a", "b")}})
+        == ConditionLike.from_spec({"value.equal_to": {"Path": ("a", "b")}})
+        == ConditionLike.from_spec({"value.equal_to": {"paTh": ("a", "b")}})
+        == ConditionLike.from_spec({"value.equal_to": {"PATH": ("a", "b")}})
+    )
+
+
+def test_ConditionLike_from_spec_single_arg_callable_DataPath_map_keys():
+    assert ConditionLike.from_spec(
+        {"value.equal_to": {"path.map_keys": ("a", "b")}}
+    ) == Value.eq(DataPath("a", "b").map_keys())
+
+
+def test_ConditionLike_from_spec_single_arg_callable_DataPath_map_keys_case_insensitivity():
+    assert (
+        ConditionLike.from_spec({"value.equal_to": {"path.map_keys": ("a", "b")}})
+        == ConditionLike.from_spec({"value.equal_to": {"path.Map_Keys": ("a", "b")}})
+        == ConditionLike.from_spec({"value.equal_to": {"path.map_kEys": ("a", "b")}})
+        == ConditionLike.from_spec({"value.equal_to": {"path.MAP_KEYS": ("a", "b")}})
+    )
+
+
+def test_ConditionLike_from_spec_single_arg_callable_DataPath_map_values():
+    assert ConditionLike.from_spec(
+        {"value.equal_to": {"path.map_values": ("a", "b")}}
+    ) == Value.eq(DataPath("a", "b").map_values())
+
+
+def test_ConditionLike_from_spec_single_arg_callable_DataPath_length():
+    assert ConditionLike.from_spec(
+        {"value.equal_to": {"path.length": ("a", "b")}}
+    ) == Value.eq(DataPath("a", "b").length())
+
+
+def test_ConditionLike_from_spec_single_arg_callable_DataPath_dtype():
+    assert ConditionLike.from_spec(
+        {"value.equal_to": {"path.dtype": ("a", "b")}}
+    ) == Value.eq(DataPath("a", "b").dtype())
+
+
+def test_equivalence_ConditionLike_from_spec_single_arg_callable_DataPath_dtype_type():
+    assert ConditionLike.from_spec(
+        {"value.equal_to": {"path.dtype": ("a", "b")}}
+    ) == ConditionLike.from_spec({"value.equal_to": {"path.type": ("a", "b")}})
+
+
+def test_equivalence_ConditionLike_from_spec_single_arg_callable_DataPath_len_length():
+    assert ConditionLike.from_spec(
+        {"value.equal_to": {"path.len": ("a", "b")}}
+    ) == ConditionLike.from_spec({"value.equal_to": {"path.length": ("a", "b")}})
+
+
+def test_equivalence_ConditionLike_from_spec_multi_arg_callable_DataPath():
+    assert (
+        ConditionLike.from_spec(
+            {
+                "value.in_range": {
+                    "lower": {"path": ("A", "lower")},
+                    "upper": {"path": ("A", "upper")},
+                }
+            }
+        )
+        == Value.in_range(lower=DataPath("A", "lower"), upper=DataPath("A", "upper"))
+    )
+
+
+def test_ConditionLike_from_spec_DataPath_escape():
+    assert ConditionLike.from_spec(
+        {"value.equal_to": {r"\path": ["A", "B"]}}
+    ) == Value.equal_to({"path": ["A", "B"]})
+
+
+def test_ConditionLike_from_spec_DataPath_escape_multi_item():
+    assert ConditionLike.from_spec(
+        {"value.equal_to": {r"\path": ["A", "B"], "key": "val"}}
+    ) == Value.equal_to({"path": ["A", "B"], "key": "val"})
+
+
+def test_ConditionLike_from_spec_DataPath_escape_slashed():
+    assert ConditionLike.from_spec(
+        {"value.equal_to": {r"\\path": ["A", "B"]}}
+    ) == Value.equal_to({"\path": ["A", "B"]})
+
+
+def test_ConditionLike_from_spec_DataPath_map_values_escape():
+    assert ConditionLike.from_spec(
+        {"value.equal_to": {r"\path.map_values": ["A", "B"]}}
+    ) == Value.equal_to({"path.map_values": ["A", "B"]})

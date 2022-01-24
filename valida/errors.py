@@ -1,9 +1,9 @@
-class ValidationFailure:
-    def __init__(self, raise_error=False):
-        # do some stuff
-
-        if raise_error:
-            raise ValidationError()  # pass some stuff
+class RuleValidationFailure:
+    def __init__(
+        self,
+        rule,
+    ):
+        pass
 
 
 class DuplicateRule(Exception):
@@ -21,3 +21,14 @@ class ValidationError(Exception):
 class InvalidCallable(Exception):
     pass
 
+
+class MalformedConditionLikeSpec(Exception):
+    pass
+
+
+class MalformedContainerItemSpec(Exception):
+    pass
+
+
+class MalformedDataPathSpec(Exception):
+    pass

@@ -1,6 +1,7 @@
 import pytest
 
 from valida.conditions import Value, Key, Index
+from valida.data import Data
 
 
 @pytest.fixture
@@ -18,9 +19,9 @@ def list_data_expected_truth_tables():
     c3b = c1a | c1b & c1c  # `&` takes precedence over `|`
     c3c = c1a & (c1b | c1c)  # parentheses to take precedence over `&`
 
-    tt1a = ("less_than({'value': 2})", [True, False, False, False])
-    tt1b = ("greater_than({'value': 2})", [False, False, True, True])
-    tt1c = ("equal_to({'value': 3})", [False, False, True, False])
+    tt1a = ("Value.less_than(value=2)", [True, False, False, False])
+    tt1b = ("Value.greater_than(value=2)", [False, False, True, True])
+    tt1c = ("Value.equal_to(value=3)", [False, False, True, False])
 
     b_tta = [tt1a, tt1b, ("and", [False, False, False, False])]
     b_ttb = [tt1a, tt1b, ("or", [True, False, True, True])]
@@ -152,3 +153,26 @@ def test_ternary_op_filter_truth_tables(
         list_data_expected_truth_tables["ternary_truth_tables"][2]
         == list_data_actual_truth_tables["ternary_truth_tables"][2]
     )
+
+
+def test_equivalence_of_data_filter_condition_and_condition_filter_data():
+    my_data = Data([1, 2, 3])
+    condition = Value.eq(2)
+    assert my_data.filter(condition).data == condition.filter(my_data).data
+
+
+def test_coercion_to_data_obj_in_condition_filter():
+    dat_1 = [1, 2, 3]
+    dat_2 = Data(dat_1)
+    condition = Value.eq(2)
+    assert condition.filter(dat_1) == condition.filter(dat_2)
+
+
+def test_equivalence_of_filter_with_data_has_paths():
+    data = [7, 8, 9]
+    data_with_paths = [(i, idx) for idx, i in enumerate(data)]
+    condition = Value.eq(8)
+    f1 = condition.filter(data, data_has_paths=False)
+    f2 = condition.filter(data_with_paths, data_has_paths=True)
+
+    assert f1.source == f2.source and f1.data == f2.data

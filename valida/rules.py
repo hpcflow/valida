@@ -1,121 +1,148 @@
-from containers import (
-    Container,
-    ContainerPath,
-    ListItem,
-    DictValue,
-    AmbiguousItem,    
-)
-from errors import IncompatibleRules, DuplicateRule
+from valida.conditions import ConditionLike
+from valida.data import Data
+from valida.datapath import DataPath
 
-def parse_string_path(path):
-    
-    LIST_ITEM_PLACEHOLDER = '<<li>>'
-    DICT_VALUE_PLACEHOLDER = '<<dv>>'
 
-    path_out = ContainerPath()
-    for i in path:
-        
-        if isinstance(i, str):
-            if i == LIST_ITEM_PLACEHOLDER:
-                i = ListItem()
-            elif i == DICT_VALUE_PLACEHOLDER:
-                i = DictValue()
+class Rule:
+    def __init__(self, path, condition):
+
+        if not isinstance(path, DataPath):
+            path = DataPath(*path)
+
+        self.path = path
+        self.condition = condition
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"path={self.path!r}, condition={self.condition!r}"
+            f")"
+        )
+
+    def __eq__(self, other):
+        if type(other) == type(self):
+            if other.path == self.path and other.condition == self.condition:
+                return True
+        return False
+
+    @classmethod
+    def from_spec(cls, spec):
+        path = DataPath.from_part_specs(*spec["path"])
+        cond = ConditionLike.from_spec(spec["condition"])
+        return cls(path=path, condition=cond)
+
+    def test(self, data):
+        return RuleTest(self, data)
+
+
+class RuleTestFailureItem:
+    def __init__(self, rule_test, index, value, path, reasons):
+
+        self.rule_test = rule_test
+        self.index = index
+        self.value = value
+        self.path = path
+        self.reasons = reasons
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"value={self.value!r}, path={self.path!r}), reasons={self.reasons!r}"
+            f")"
+        )
+
+
+class RuleTest:
+    def __init__(self, rule, data):
+
+        if not isinstance(data, Data):
+            data = Data(data)
+
+        self.rule = rule
+        self.data = data
+
+        self._tested = False  # assigned by `_test()` - True if the rule path existed
+        self._is_valid = None  # assigned by `_test()`
+        self._failures = None  # assigned by `_test()`
+
+        self._test()
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"is_valid={self.is_valid!r}, num_failures={self.num_failures!r}"
+            f")"
+        )
+
+    def __eq__(self, other):
+        if type(other) == type(self):
+            if other.rule == self.rule and other.data is self.data:
+                return True
+        return False
+
+    @property
+    def is_valid(self):
+        return self._is_valid
+
+    @property
+    def tested(self):
+        return self._tested
+
+    @property
+    def num_failures(self):
+        return len(self.failures)
+
+    @property
+    def failures(self):
+        return self._failures
+
+    def print_failures(self):
+        if not self.failures:
+            print("Rule test is valid.")
+        for fail in self.failures:
+            print(f"Path: {fail.path!r}\nValue: {fail.value!r}\nReasons:")
+            for reason in fail.reasons:
+                print(" " + reason)
+
+    def _test(self):
+
+        sub_data = self.rule.path.get_data(self.data, return_paths=True)
+        path_exists = sub_data not in [None, []]
+
+        if self.rule.path.is_concrete:
+            sub_data = [sub_data]
+
+        self.sub_data = sub_data
+
+        failures = []
+        if path_exists:
+            filtered_data = self.rule.condition.filter(
+                sub_data,
+                data_has_paths=True,
+                source_data=self.data,
+            )
+            if all(filtered_data.result):
+                self._is_valid = True
+
             else:
-                i = DictValue(i)
-        elif isinstance(i, float):
-            i = DictValue(i)
-        elif isinstance(i, int):
-            i = AmbiguousItem(i)
+                self._is_valid = False
+                for f_item in filtered_data:
+                    if not f_item.result:
+                        failure_item = RuleTestFailureItem(
+                            rule_test=self,
+                            index=f_item.index,
+                            value=f_item.source,
+                            path=f_item.concrete_path,
+                            reasons=f_item.get_failure(),
+                        )
+                        failures.append(failure_item)
 
-        path_out = path_out / i
-
-    return path_out
-
-def resolve_implicit_types(path):
-    
-    types = []
-    for i in path:
-        
-        # Note: we don't support "complex mappings" from YAML where keys are themselves
-        # mappings or lists
-
-        # print(f'type i: {type(i)}')
-        
-        if isinstance(i, ListItem):
-            type_i = Container.LIST
-
-        elif isinstance(i, DictValue):
-            type_i = Container.DICT
-        
-        elif isinstance(i, AmbiguousItem):
-            type_i = Container.CONTAINER
+            self.filter = filtered_data
+            self._tested = True
 
         else:
-            raise TypeError(f'Unknown container item type: "{type(i)}"')
+            self._is_valid = True
+            self._tested = False
+            self.filter = None
 
-        types.append(type_i)
-
-    return types
-
-def validate_rule_paths(rules):
-
-    seen_paths = []
-    predicted_types = {}
-    for r_idx, r in enumerate(rules):
-        r_path = r['path']
-        if r_path in seen_paths:
-            msg = f'Rule index {r_idx} shares with another rule the path: {r_path}'
-            raise DuplicateRule(msg)
-        else:
-            seen_paths.append(r_path)
-            # print(f'r_path: {r_path!r} is not in seen_paths:\n{seen_paths!r}\n')
-        r_types = resolve_implicit_types(r_path)
-        
-        
-        # print(f'predicted_types: {predicted_types}')
-        
-        for path_end_idx in range(len(r_path)):
-            partial_path = r_path[0:path_end_idx]
-            partial_path_str = f'{partial_path!r}'
-            # print(path_end_idx, partial_path)
-            if partial_path_str in predicted_types:
-                predicted_types[partial_path_str]['rules'].append(r_idx)
-                predicted_types[partial_path_str]['types'].append(r_types[path_end_idx])
-            else:
-                predicted_types[partial_path_str] = {
-                    'rules': [r_idx],
-                    'types': [r_types[path_end_idx]]
-                }
-
-    # Identify type, where possible, for each node
-    for path, types_info in predicted_types.items():
-        
-        uniq_types = set(types_info['types'])
-        
-        if len(uniq_types) == 1:
-            actual_type = list(uniq_types)[0]
-        
-        elif Container.LIST in uniq_types and Container.DICT in uniq_types:
-            path_rules = [(i, rules[i]['path']) for i in types_info['rules']]
-            # print(path_rules)
-            path_rules_fmt = '\n\t' + '\n\t'.join(
-                f'Rule index {i[0]}: {i[1]!r}' for i in path_rules)
-            msg = (f'Incompatible rules specified for path {path}; at least one rule '
-                   f'implies this node is a mapping, but at least one other rule implies '
-                   f'this node is a list. Associated rule paths are: {path_rules_fmt}')
-            raise IncompatibleRules(msg)
-        
-        elif Container.CONTAINER in uniq_types:
-
-            if Container.LIST in uniq_types:
-                actual_type = Container.LIST
-            
-            elif Container.DICT in uniq_types:
-                actual_type = Container.DICT
-        
-        else:
-            raise RuntimeError('Unique container types not understood.')
-
-        predicted_types[path] = actual_type
-
-    return predicted_types
+        self._failures = tuple(failures)
