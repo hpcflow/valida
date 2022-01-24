@@ -1,4 +1,26 @@
 
+<a name="v0.2.0"></a>
+## [v0.2.0](https://github.com/hpcflow/valida/compare/v0.1.1...v0.2.0) - 2022.01.24
+
+### ♻ Code Refactoring
+
+* remove use of dynamically generated classes
+
+### ✨ Features
+
+* add some top-level imports for easier access
+* flesh out and complete currenty required feature set
+
+### 🐛 Bug Fixes
+
+* remove unused module
+
+### 👷 Build changes
+
+* update release workflow to publish to pypi
+* update gitignore
+
+
 <a name="v0.1.1"></a>
 ## [v0.1.1](https://github.com/hpcflow/valida/compare/v0.1.0...v0.1.1) - 2022.01.11
 
