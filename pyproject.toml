@@ -2,7 +2,7 @@
 name = "valida"
 version = "0.2.0"
 description = "Comprehensive validation library for nested data structures."
-authors = ["Adam J. Plowman <adam.jp@live.co.uk>"]
+authors = ["Adam J. Plowman <adam.plowman@manchester.ac.uk>"]
 license = "MIT"
 readme = "README.md"
 
