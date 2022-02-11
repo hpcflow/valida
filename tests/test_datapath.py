@@ -853,3 +853,23 @@ def test_DataPath_from_spec_with_MULTI_TYPE():
     assert (
         DataPath.from_spec({"path.first": path_parts}) == DataPath(*path_parts).first()
     )
+
+
+def test_raise_on_MapValue_filter_list():
+    data = Data([1, 2, 3])
+    with pytest.raises(TypeError):
+        MapValue().filter(data)
+
+
+def test_raise_on_ListValue_filter_map():
+    data = Data({"a": 1, "b": 2})
+    with pytest.raises(TypeError):
+        ListValue().filter(data)
+
+
+def test_no_data_found_MapValue_list_data():
+    assert Data([1, 2, 3]).get(MapValue()) == []
+
+
+def test_no_data_found_ListValue_map_data():
+    assert Data({"a": 1, "b": 2}).get(ListValue()) == []

@@ -609,9 +609,6 @@ class ContainerValue:
     def __rtruediv__(self, other):
         return DataPath(other) / self
 
-    def filter(self, data):
-        return self.condition.filter(data)
-
 
 class MapValue(ContainerValue):
 
@@ -635,6 +632,15 @@ class MapValue(ContainerValue):
         self.condition = condition
         self.label = label
 
+    def filter(self, data):
+        if not isinstance(data, valida.data.Data):
+            data = valida.data.Data(data)
+        if data.is_list:
+            raise TypeError(
+                "`MapValue` container can only filter a mapping (i.e. a dict)."
+            )
+        return self.condition.filter(data)
+
 
 class ListValue(ContainerValue):
 
@@ -657,6 +663,13 @@ class ListValue(ContainerValue):
         )
         self.condition = condition
         self.label = label
+
+    def filter(self, data):
+        if not isinstance(data, valida.data.Data):
+            data = valida.data.Data(data)
+        if not data.is_list:
+            raise TypeError("`ListValue` container can only filter a list.")
+        return self.condition.filter(data)
 
 
 class MapOrListValue(ContainerValue):
@@ -712,22 +725,13 @@ class MapOrListValue(ContainerValue):
         )
 
     def filter(self, data):
-        try:
-            if data.is_list:
-                condition = self.list_condition & self.condition
-            else:
-                condition = self.map_condition & self.condition
+        if not isinstance(data, valida.data.Data):
+            data = valida.data.Data(data)
+        if data.is_list:
+            condition = self.list_condition & self.condition
+        else:
+            condition = self.map_condition & self.condition
 
-        except AttributeError:
-
-            if isinstance(data, list):
-                condition = self.list_condition & self.condition
-            elif isinstance(data, dict):
-                condition = self.map_condition & self.condition
-            else:
-                raise RuntimeError(
-                    f"Datum type ({type(data)!r}) is not a list or dict: {data!r}"
-                )
         return condition.filter(data)
 
 
