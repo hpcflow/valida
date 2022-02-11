@@ -32,7 +32,7 @@ class Schema:
 
     @classmethod
     def from_yaml(cls, yaml_str):
-        yaml = YAML()
+        yaml = YAML(typ="safe")
         schema_dat = yaml.load(yaml_str)
         rules = cls.init_rules(schema_dat["rules"])
         return cls(rules)
