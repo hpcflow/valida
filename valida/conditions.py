@@ -363,9 +363,11 @@ class ConditionLike:
                     pre_proc_str = PRE_PROC_LOOKUP.get(pre_proc_str, pre_proc_str)
                     if pre_proc_str == "dtype":
                         try:
-                            spec_val = DTYPE_LOOKUP[
-                                spec_val
-                            ]  # convert strings to types
+                            # convert strings to types
+                            if isinstance(spec_val, list):
+                                spec_val = [DTYPE_LOOKUP[i] for i in spec_val]
+                            else:
+                                spec_val = DTYPE_LOOKUP[spec_val]
                         except KeyError:
                             raise MalformedConditionLikeSpec(
                                 f"Data type {spec_val!r} is not understood. Available data "
