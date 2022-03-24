@@ -81,26 +81,32 @@ class ValidatedData:
     def num_failures(self):
         return sum(i.num_failures for i in self.rule_tests)
 
-    def print_failures(self):
+    def get_failures_string(self):
 
+        out = ""
         rules_tested_msg = (
             f"{self.num_rules_tested}/{len(self.schema)} rules were tested."
         )
         if self.is_valid:
-            print(f"Data is valid. {rules_tested_msg}")
+            out += f"Data is valid. {rules_tested_msg}\n"
             return
 
-        print(
+        out += (
             f"{self.num_failures} rule{'s' if self.num_failures > 1 else ''} "
-            f"failed validation. {rules_tested_msg}\n"
+            f"failed validation. {rules_tested_msg}\n\n"
         )
 
         for rule_idx, rule_test in enumerate(self.rule_tests, start=1):
             if not rule_test.is_valid:
                 rule_msg = f"Rule #{rule_idx}"
-                print(rule_msg + "\n" + "-" * len(rule_msg))
-                rule_test.print_failures()
-                print()
+                out += rule_msg + "\n" + "-" * len(rule_msg) + "\n"
+                out += rule_test.get_failures_string()
+                out += "\n"
+
+        return out
+
+    def print_failures(self):
+        print(self.get_failures_string())
 
 
 class _TestDataSchema:
