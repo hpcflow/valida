@@ -96,13 +96,18 @@ class RuleTest:
     def failures(self):
         return self._failures
 
-    def print_failures(self):
+    def get_failures_string(self):
+        out = ""
         if not self.failures:
-            print("Rule test is valid.")
+            out += "Rule test is valid.\n"
         for fail in self.failures:
-            print(f"Path: {fail.path!r}\nValue: {fail.value!r}\nReasons:")
+            out += f"Path: {fail.path!r}\nValue: {fail.value!r}\nReasons:\n"
             for reason in fail.reasons:
-                print(" " + reason)
+                out += " " + reason + "\n"
+        return out
+
+    def print_failures(self):
+        print(self.get_failures_string())
 
     def _test(self):
 
