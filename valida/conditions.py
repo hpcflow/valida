@@ -301,11 +301,13 @@ class ConditionLike:
             "list": list,
             "dict": dict,
             "map": dict,
+            "bool": bool,
             int: int,
             float: float,
             str: str,
             list: list,
             dict: dict,
+            bool: bool,
         }
         ALL_PRE_PROCS = list(PRE_PROC_LOOKUP.keys())
 
