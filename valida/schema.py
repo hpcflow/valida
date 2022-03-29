@@ -1,6 +1,8 @@
+import copy
 from pathlib import Path
 
 from ruamel.yaml import YAML
+from valida.data import Data
 
 from valida.rules import Rule
 
@@ -48,13 +50,23 @@ class Schema:
         return cls(rules)
 
     def validate(self, data):
+        if not isinstance(data, Data):
+            data = Data(data)
         return ValidatedData(self, data)
 
 
 class ValidatedData:
     def __init__(self, schema, data):
+
+        self.data = data
         self.schema = schema
-        self.rule_tests = tuple(rule.test(data) for rule in self.schema.rules)
+
+        data_copy = copy.deepcopy(self.data.get_original())
+        self.rule_tests = tuple(
+            rule.test(self.data, _data_copy=data_copy) for rule in self.schema.rules
+        )
+
+        self.cast_data = data_copy
 
     def __repr__(self):
         return (

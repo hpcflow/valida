@@ -32,3 +32,7 @@ class MalformedContainerItemSpec(Exception):
 
 class MalformedDataPathSpec(Exception):
     pass
+
+
+class MalformedRuleSpec(Exception):
+    pass

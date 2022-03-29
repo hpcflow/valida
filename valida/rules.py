@@ -1,27 +1,35 @@
+import copy
 from valida.conditions import ConditionLike
-from valida.data import Data
+from valida.casting import CAST_DTYPE_LOOKUP, CAST_LOOKUP
+from valida.data import Data, set_datum
 from valida.datapath import DataPath
+from valida.errors import MalformedRuleSpec
 
 
 class Rule:
-    def __init__(self, path, condition):
+    def __init__(self, path, condition, cast=None):
 
         if not isinstance(path, DataPath):
             path = DataPath(*path)
 
         self.path = path
         self.condition = condition
+        self.cast = cast
 
     def __repr__(self):
         return (
             f"{self.__class__.__name__}("
-            f"path={self.path!r}, condition={self.condition!r}"
+            f"path={self.path!r}, condition={self.condition!r}, cast={self.cast!r}"
             f")"
         )
 
     def __eq__(self, other):
         if type(other) == type(self):
-            if other.path == self.path and other.condition == self.condition:
+            if (
+                other.path == self.path
+                and other.condition == self.condition
+                and other.cast == self.cast
+            ):
                 return True
         return False
 
@@ -29,10 +37,55 @@ class Rule:
     def from_spec(cls, spec):
         path = DataPath.from_part_specs(*spec["path"])
         cond = ConditionLike.from_spec(spec["condition"])
-        return cls(path=path, condition=cond)
+        cast = spec.get("cast")
+        for cast_from in list((cast or {}).keys()):
 
-    def test(self, data):
-        return RuleTest(self, data)
+            cast_to = cast.pop(cast_from)
+            try:
+                cast_from = CAST_DTYPE_LOOKUP[cast_from]
+            except KeyError:
+                raise MalformedRuleSpec(f"Unknown cast_from type: {cast_from!r}")
+
+            try:
+                cast_to = CAST_DTYPE_LOOKUP[cast_to]
+            except KeyError:
+                raise MalformedRuleSpec(f"Unknown cast_to type: {cast_to!r}")
+
+            try:
+                cast[cast_from] = CAST_LOOKUP[(cast_from, cast_to)]
+            except KeyError:
+                raise MalformedRuleSpec(
+                    f"Unsupported cast from type {cast_from!r} to type {cast_to!r}."
+                )
+
+        return cls(path=path, condition=cond, cast=cast)
+
+    def test(self, data, _data_copy=None):
+
+        if not isinstance(data, Data):
+            data = Data(data)
+
+        if not self.cast:
+            data_copy = data
+        else:
+            data_copy = _data_copy or copy.deepcopy(data.get_original())
+            sub_data = self.path.get_data(data, return_paths=True)
+            path_exists = sub_data not in [None, []]
+            if self.path.is_concrete:
+                sub_data = [sub_data]
+            if path_exists:
+                for datum, datum_path in sub_data:
+                    for k, v in self.cast.items():
+                        if isinstance(datum, k):
+                            try:
+                                datum = v(datum)
+                                break
+                            except TypeError:
+                                pass
+                    datum_path = DataPath(*datum_path)
+                    set_datum(data_copy, datum_path, datum)
+
+        return RuleTest(self, data_copy)
 
 
 class RuleTestFailureItem:

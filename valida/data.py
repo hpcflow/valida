@@ -3,6 +3,16 @@ import operator
 import valida.datapath
 
 
+def set_datum(data, data_path, datum):
+
+    for part in data_path.parts[:-1]:
+        idx = part.condition.callable.kwargs["value"]
+        data = data[idx]
+
+    idx = data_path.parts[-1].condition.callable.kwargs["value"]
+    data[idx] = datum
+
+
 class Data:
     def __init__(self, data):
 
@@ -19,6 +29,12 @@ class Data:
         self._keys = keys
         self._values = values
         self._is_list = is_list
+
+    def get_original(self):
+        if self.is_list:
+            return list(self._values)
+        else:
+            return {k: v for k, v in zip(self._keys, self._values)}
 
     def __len__(self):
         return len(self.keys())
@@ -122,6 +138,15 @@ class Data:
             data_path = valida.datapath.DataPath(*path_parts)
 
         return data_path.get_data(self, return_paths=return_paths)
+
+    def set(self, path, datum):
+        """Return a copy, with a new value set at the supplied path."""
+        if not path.is_concrete:
+            raise TypeError("Cannot set data at non-concrete path.")
+
+        data = self.get_original()
+        set_datum(data, path, datum)
+        return Data(data)
 
 
 class FilteredDataLike:
