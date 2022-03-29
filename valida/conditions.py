@@ -1,5 +1,6 @@
 import enum
 import operator
+import pathlib
 from subprocess import call
 import warnings
 
@@ -128,6 +129,10 @@ class GeneralCallables:
     @classmethod
     def null(cls):
         return cls(call_funcs.null)
+
+    @classmethod
+    def is_instance(cls, *classes):
+        return cls(call_funcs.is_instance, *classes)
 
     # Aliases for convenience:
     eq = equal_to
@@ -302,12 +307,14 @@ class ConditionLike:
             "dict": dict,
             "map": dict,
             "bool": bool,
+            "path": pathlib.Path,
             int: int,
             float: float,
             str: str,
             list: list,
             dict: dict,
             bool: bool,
+            pathlib.Path: pathlib.Path,
         }
         ALL_PRE_PROCS = list(PRE_PROC_LOOKUP.keys())
 
@@ -367,9 +374,16 @@ class ConditionLike:
                         try:
                             # convert strings to types
                             if isinstance(spec_val, list):
-                                spec_val = [DTYPE_LOOKUP[i] for i in spec_val]
+                                spec_val = [
+                                    DTYPE_LOOKUP[i.lower() if isinstance(i, str) else i]
+                                    for i in spec_val
+                                ]
                             else:
-                                spec_val = DTYPE_LOOKUP[spec_val]
+                                spec_val = DTYPE_LOOKUP[
+                                    spec_val.lower()
+                                    if isinstance(spec_val, str)
+                                    else spec_val
+                                ]
                         except KeyError:
                             raise MalformedConditionLikeSpec(
                                 f"Data type {spec_val!r} is not understood. Available data "
@@ -384,11 +398,30 @@ class ConditionLike:
                         f'Available pre-processors are "length" and "type"/"dtype", but '
                         f"not all pre-processors are applicable to all condition types."
                     )
-            try:
-                cond_call_str = spec_key_split[-1]
-                cond_call_str = CALLABLE_LOOKUP.get(cond_call_str, cond_call_str)
-                cond_method = getattr(cls, cond_call_str)
 
+            cond_call_str = spec_key_split[-1]
+            cond_call_str = CALLABLE_LOOKUP.get(cond_call_str, cond_call_str)
+            # special case:
+            if cond_call_str == "is_instance":
+                try:
+                    # convert strings to types
+                    if isinstance(spec_val, list):
+                        spec_val = [
+                            DTYPE_LOOKUP[i.lower() if isinstance(i, str) else i]
+                            for i in spec_val
+                        ]
+                    else:
+                        spec_val = DTYPE_LOOKUP[
+                            spec_val.lower() if isinstance(spec_val, str) else spec_val
+                        ]
+                except KeyError:
+                    raise MalformedConditionLikeSpec(
+                        f"Data type {spec_val!r} is not understood. Available data "
+                        f"types are: {list(DTYPE_LOOKUP.keys())!r}."
+                    )
+
+            try:
+                cond_method = getattr(cls, cond_call_str)
             except AttributeError:
                 msg = (
                     f'Condition callable "{cond_call_str}" is not known or not '
