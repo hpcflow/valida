@@ -1,8 +1,6 @@
 from textwrap import dedent
 
-import pytest
-from valida.data import Data
-
+from valida.casting import cast_string_to_bool
 from valida.schema import Schema
 from valida.rules import Rule
 from valida.conditions import Value, NullCondition
@@ -48,3 +46,37 @@ def test_expected_return_dtype_in():
     schema_from_yaml = Schema.from_yaml(yaml_str)
     schema = Schema(rules=[Rule(path=["A"], condition=Value.dtype.in_([list, dict]))])
     assert schema_from_yaml == schema
+
+
+def test_cast_str_to_bool():
+    r = Rule(
+        path=["telemetry"],
+        condition=Value.dtype.equal_to(bool),
+        cast={str: cast_string_to_bool},
+    )
+    schema = Schema(rules=[r])
+    data = {"telemetry": "true"}
+    validated_data = schema.validate(data)
+    assert validated_data.is_valid and validated_data.cast_data == {"telemetry": True}
+
+
+def test_cast_str_to_bool_and_str_to_int():
+    schema = Schema(
+        rules=[
+            Rule(
+                path=["A"],
+                condition=Value.dtype.equal_to(bool),
+                cast={str: cast_string_to_bool},
+            ),
+            Rule(
+                path=["B"],
+                condition=Value.equal_to(3),
+                cast={str: int},
+            ),
+        ]
+    )
+
+    data = {"A": "true", "B": "3"}
+    cast_data = {"A": True, "B": 3}
+    validated_data = schema.validate(data)
+    assert validated_data.is_valid and validated_data.cast_data == cast_data
