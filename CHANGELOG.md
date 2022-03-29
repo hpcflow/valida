@@ -1,4 +1,12 @@
 
+<a name="v0.4.0"></a>
+## [v0.4.0](https://github.com/hpcflow/valida/compare/v0.3.0...v0.4.0) - 2022.03.29
+
+### ✨ Features
+
+* first attempt at casting support
+
+
 <a name="v0.3.0"></a>
 ## [v0.3.0](https://github.com/hpcflow/valida/compare/v0.2.2...v0.3.0) - 2022.03.29
 
