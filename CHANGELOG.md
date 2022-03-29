@@ -1,4 +1,12 @@
 
+<a name="v0.3.0"></a>
+## [v0.3.0](https://github.com/hpcflow/valida/compare/v0.2.2...v0.3.0) - 2022.03.29
+
+### ✨ Features
+
+* add is_instance callable, norm dtype case
+
+
 <a name="v0.2.2"></a>
 ## [v0.2.2](https://github.com/hpcflow/valida/compare/v0.2.1...v0.2.2) - 2022.03.28
 
