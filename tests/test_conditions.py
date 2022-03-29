@@ -504,3 +504,39 @@ def test_ConditionLike_from_spec_DataPath_map_values_escape():
     assert ConditionLike.from_spec(
         {"value.equal_to": {r"\path.map_values": ["A", "B"]}}
     ) == Value.equal_to({"path.map_values": ["A", "B"]})
+
+
+def test_ConditionLike_from_spec_equivalence_value_equal_to():
+    assert ConditionLike.from_spec({"value.equal_to": 4}) == Value.equal_to(4)
+
+
+def test_ConditionLike_from_spec_dtype_case_insensitivity():
+    assert (
+        ConditionLike.from_spec({"value.dtype.equal_to": "str"})
+        == ConditionLike.from_spec({"value.dtype.equal_to": "STR"})
+        == ConditionLike.from_spec({"value.dtype.equal_to": "sTr"})
+    )
+
+
+def test_ConditionLike_from_spec_dtype_native_type_equivalence():
+    assert ConditionLike.from_spec(
+        {"value.dtype.equal_to": "str"}
+    ) == ConditionLike.from_spec({"value.dtype.equal_to": str})
+
+
+def test_ConditionLike_from_spec_equivalence_is_instance_single_cls():
+    assert ConditionLike.from_spec({"value.is_instance": ["str"]}) == Value.is_instance(
+        str
+    )
+
+
+def test_ConditionLike_from_spec_equivalence_is_instance_multiple_cls():
+    assert ConditionLike.from_spec(
+        {"value.is_instance": ["str", "int"]}
+    ) == Value.is_instance(str, int)
+
+
+def test_ConditionLike_from_spec_equivalence_is_instance_native_type():
+    assert ConditionLike.from_spec(
+        {"value.is_instance": ["str", "int"]}
+    ) == ConditionLike.from_spec({"value.is_instance": [str, int]})

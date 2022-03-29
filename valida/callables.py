@@ -123,3 +123,7 @@ def falsy(trial_datum):
 
 def null(trial_data):
     return True
+
+
+def is_instance(trial_datum, *classes):
+    return isinstance(trial_datum, classes)
