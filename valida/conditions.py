@@ -526,6 +526,9 @@ class ConditionLike:
 
         return condition_like
 
+    @classmethod
+    def from_json_like(cls, json_like, *args, **kwargs):
+        return cls.from_spec(json_like)
 
 class Condition(ConditionLike):
 
@@ -621,6 +624,34 @@ class Condition(ConditionLike):
             data_has_paths=data_has_paths,
         )
 
+    def to_json_like(self, *args, **kwargs):
+        # need to return a single-item dict that can be passed to `from_spec` for
+        # round-tripping.
+
+        INV_DTYPE_LOOKUP = {
+            int: "int",
+            float: "float",
+            str: "str",
+            list: "list",
+            dict: "dict",
+            bool: "bool",
+            pathlib.Path: "path",
+        }
+
+        # TODO: doesn't work for BinaryOps?
+        key = f"{self.js_like_label}.{self.callable.func.__name__}"
+
+        if len(self.callable.kwargs) == 1:
+            _, val = next(iter(self.callable.kwargs.items()))
+            if "dtype" in key:
+                val = INV_DTYPE_LOOKUP[val]
+
+        out = {key: val}
+        if "shared_data" in kwargs:
+            return out, kwargs["shared_data"]
+        else:
+            return out
+
 
 class FilterDatumType(enum.Enum):
 
@@ -638,6 +669,12 @@ class NullCondition(Condition):
 
     def __repr__(self):
         return f"{self.__class__.__name__}()"
+
+    def to_json_like(self, *args, **kwargs):
+        if "shared_data" in kwargs:
+            return {}, kwargs["shared_data"]
+        else:
+            return {}
 
 
 class ConditionBinaryOp(ConditionLike):
@@ -771,6 +808,8 @@ class IndexLike(Condition):
 
 
 class Value(ValueLike, AllCallables):
+    js_like_label = "value"
+
     @classproperty
     def length(cls):
         return ValueLength
@@ -781,14 +820,16 @@ class Value(ValueLike, AllCallables):
 
 
 class ValueLength(LengthPreProcessor, ValueLike, GeneralCallables):
-    pass
+    js_like_label = "value.length"
 
 
 class ValueDataType(DataTypePreProcessor, ValueLike, GeneralCallables):
-    pass
+    js_like_label = "value.dtype"
 
 
 class Key(KeyLike, AllCallables):
+    js_like_label = "key"
+
     @classproperty
     def length(cls):
         return KeyLength
@@ -799,12 +840,12 @@ class Key(KeyLike, AllCallables):
 
 
 class KeyLength(LengthPreProcessor, KeyLike, GeneralCallables):
-    pass
+    js_like_label = "key.length"
 
 
 class KeyDataType(DataTypePreProcessor, KeyLike, GeneralCallables):
-    pass
+    js_like_label = "key.dtype"
 
 
 class Index(IndexLike, GeneralCallables):
-    pass
+    js_like_label = "index"

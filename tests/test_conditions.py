@@ -1,3 +1,4 @@
+import pathlib
 import pytest
 
 from valida.conditions import (
@@ -540,3 +541,51 @@ def test_ConditionLike_from_spec_equivalence_is_instance_native_type():
     assert ConditionLike.from_spec(
         {"value.is_instance": ["str", "int"]}
     ) == ConditionLike.from_spec({"value.is_instance": [str, int]})
+
+
+def test_to_json_like_round_trip_null():
+    c1 = NullCondition()
+    c1_js = c1.to_json_like()
+    assert ConditionLike.from_spec(c1_js) == c1
+
+
+def test_to_json_like_round_trip_value_equal_to():
+    c1 = Value.equal_to(1)
+    c1_js = c1.to_json_like()
+    assert ConditionLike.from_spec(c1_js) == c1
+
+
+def test_to_json_like_round_trip_value_dtype_int_equal_to():
+    c1 = Value.dtype.equal_to(int)
+    c1_js = c1.to_json_like()
+    assert ConditionLike.from_spec(c1_js) == c1
+
+
+def test_to_json_like_round_trip_value_dtype_str_equal_to():
+    c1 = Value.dtype.equal_to(str)
+    c1_js = c1.to_json_like()
+    assert ConditionLike.from_spec(c1_js) == c1
+
+
+def test_to_json_like_round_trip_value_dtype_path_equal_to():
+    c1 = Value.dtype.equal_to(pathlib.Path)
+    c1_js = c1.to_json_like()
+    assert ConditionLike.from_spec(c1_js) == c1
+
+
+def test_to_json_like_round_trip_value_length_equal_to():
+    c1 = Value.length.equal_to(2)
+    c1_js = c1.to_json_like()
+    assert ConditionLike.from_spec(c1_js) == c1
+
+
+def test_to_json_like_round_trip_key_equal_to():
+    c1 = Key.equal_to(2)
+    c1_js = c1.to_json_like()
+    assert ConditionLike.from_spec(c1_js) == c1
+
+
+def test_to_json_like_round_trip_index_equal_to():
+    c1 = Index.equal_to(2)
+    c1_js = c1.to_json_like()
+    assert ConditionLike.from_spec(c1_js) == c1
