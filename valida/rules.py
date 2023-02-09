@@ -60,6 +60,21 @@ class Rule:
 
         return cls(path=path, condition=cond, cast=cast)
 
+    @classmethod
+    def from_json_like(cls, json_like, *args, **kwargs):
+        return cls.from_spec(json_like)
+
+    def to_json_like(self, *args, **kwargs):
+        out = {
+            "condition": self.condition.to_json_like(),
+            "cast": self.cast,
+            "path": self.path.to_json_like(),
+        }
+        if "shared_data" in kwargs:
+            return out, kwargs["shared_data"]
+        else:
+            return out
+
     def test(self, data, _data_copy=None):
 
         if not isinstance(data, Data):
