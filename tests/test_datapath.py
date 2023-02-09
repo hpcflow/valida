@@ -873,3 +873,15 @@ def test_no_data_found_MapValue_list_data():
 
 def test_no_data_found_ListValue_map_data():
     assert Data({"a": 1, "b": 2}).get(ListValue()) == []
+
+
+def test_part_spec_round_trip_map_keys():
+    parts = ["inputs", "p1", "b", "0"]
+    dp1 = DataPath.from_part_specs(*parts)
+    assert dp1.to_part_specs() == parts
+
+
+def test_part_spec_round_trip_map_keys_or_list_index():
+    parts = ["inputs", "p1", "b", 0]
+    dp1 = DataPath.from_part_specs(*parts)
+    assert dp1.to_part_specs() == parts

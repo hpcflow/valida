@@ -205,6 +205,17 @@ class DataPath:
         return obj
 
     @classmethod
+    def from_json_like(cls, json_like, *args, **kwargs):
+        return cls.from_spec(json_like)
+
+    def to_json_like(self, *args, **kwargs):
+        out = self.to_part_specs()
+        if "shared_data" in kwargs:
+            return out, kwargs["shared_data"]
+        else:
+            return out
+
+    @classmethod
     def from_part_specs(cls, *parts):
         """Construct a DataPath from parts that might include dicts, where each dict
         describes the required ContainerItem using string keys."""
@@ -216,6 +227,17 @@ class DataPath:
             spec_resolved_parts.append(i)
 
         return cls(*spec_resolved_parts)
+
+    def to_part_specs(self):
+        parts = []
+        for i in self.parts:
+            try:
+                part_spec = i.condition.callable.kwargs["value"]
+            except KeyError:
+                if isinstance(i, MapOrListValue):
+                    part_spec = i.list_condition.callable.kwargs["value"]
+            parts.append(part_spec)
+        return parts
 
     @classmethod
     def from_str(cls, path_str, delimiter="/"):
