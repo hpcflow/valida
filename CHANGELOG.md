@@ -1,4 +1,12 @@
 
+<a name="v0.5.0"></a>
+## [v0.5.0](https://github.com/hpcflow/valida/compare/v0.4.0...v0.5.0) - 2023.02.09
+
+### ✨ Features
+
+* add to/from_json_like methods to Condition, DataPath, Rule
+
+
 <a name="v0.4.0"></a>
 ## [v0.4.0](https://github.com/hpcflow/valida/compare/v0.3.0...v0.4.0) - 2022.03.29
 
