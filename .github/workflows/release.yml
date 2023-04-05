@@ -18,7 +18,7 @@ jobs:
 
       - uses: actions/setup-python@v2
         with:
-          python-version: 3.9
+          python-version: "3.11"
 
       - name: Get git-chglog executable
         run: |
@@ -74,13 +74,15 @@ jobs:
 
       - uses: actions/setup-python@v2
         with:
-          python-version: 3.9
+          python-version: "3.11"
 
       - name: Install poetry
-        run: python -m pip install poetry
+        run: python -m pip install poetry==1.4
 
       - name: Configure poetry
-        run: poetry config virtualenvs.in-project true
+        run: |
+          poetry config virtualenvs.in-project true
+          poetry config installer.modern-installation false
 
       - name: Cache the virtualenv
         uses: actions/cache@v2
