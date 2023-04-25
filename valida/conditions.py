@@ -530,6 +530,7 @@ class ConditionLike:
     def from_json_like(cls, json_like, *args, **kwargs):
         return cls.from_spec(json_like)
 
+
 class Condition(ConditionLike):
 
     PRE_PROCESSOR = None

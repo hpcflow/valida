@@ -111,10 +111,7 @@ jobs:
           tag_name: ${{ needs.bump-version.outputs.new_tag_name }}
           prerelease: ${{ github.ref == 'refs/heads/develop' }}
 
-      - name: Publish (to test PyPI)
+      - name: Publish to PyPI
         run: |
-          # poetry config repositories.test-pypi https://test.pypi.org/legacy/
-          # poetry config pypi-token.test-pypi ${{ secrets.TEST_PYPI }}
-          # poetry publish --repository test-pypi
           poetry config pypi-token.pypi ${{ secrets.PYPI }}
           poetry publish
