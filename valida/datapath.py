@@ -1,15 +1,11 @@
 import copy
 import enum
-from multiprocessing.dummy import Value
-from os import path
-from tkinter import E
 
 import valida.data
 import valida.conditions as cnds
 from valida.errors import (
     DuplicateRule,
     IncompatibleRules,
-    MalformedContainerItemSpec,
     MalformedDataPathSpec,
 )
 
