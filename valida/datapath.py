@@ -92,9 +92,9 @@ class DataPath:
                 elif isinstance(i, int):
                     i = MapOrListValue(key=i, index=i)  # could be either map or list
                 else:
-                    raise TypeError(
-                        f"Cannot construct a DataPath from part of type: {type(i)}"
-                    )
+                    msg = f"Cannot construct a DataPath from part of type: {type(i)!r}"
+                    raise TypeError(msg)
+
             part_objs.append(i)
 
         self.parts = tuple(part_objs)
@@ -217,7 +217,7 @@ class DataPath:
         describes the required ContainerItem using string keys."""
 
         spec_resolved_parts = []
-        for i in parts:
+        for i in copy.deepcopy(parts):
             if isinstance(i, dict):
                 i = ContainerValue.from_spec(i)
             spec_resolved_parts.append(i)
@@ -232,6 +232,12 @@ class DataPath:
             except KeyError:
                 if isinstance(i, MapOrListValue):
                     part_spec = i.list_condition.callable.kwargs["value"]
+                elif i.CONTAINER_TYPE is Container.MAP:
+                    part_spec = {"type": "map_value"}
+                elif i.CONTAINER_TYPE is Container.LIST:
+                    part_spec = {"type": "list_value"}
+                else:
+                    raise RuntimeError(f"Cannot convert part to a part spec: {i!r}.")
             parts.append(part_spec)
         return parts
 

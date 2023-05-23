@@ -885,3 +885,15 @@ def test_part_spec_round_trip_map_keys_or_list_index():
     parts = ["inputs", "p1", "b", 0]
     dp1 = DataPath.from_part_specs(*parts)
     assert dp1.to_part_specs() == parts
+
+
+def test_part_spec_round_trip_map_value():
+    parts = ["A", {"type": "map_value"}]
+    dp1 = DataPath.from_part_specs(*parts)
+    assert dp1.to_part_specs() == parts
+
+
+def test_part_spec_round_trip_list_value():
+    parts = ["A", {"type": "list_value"}]
+    dp1 = DataPath.from_part_specs(*parts)
+    assert dp1.to_part_specs() == parts

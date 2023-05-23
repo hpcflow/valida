@@ -1,7 +1,6 @@
 import enum
 import operator
 import pathlib
-from subprocess import call
 import warnings
 
 
