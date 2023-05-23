@@ -589,3 +589,10 @@ def test_to_json_like_round_trip_index_equal_to():
     c1 = Index.equal_to(2)
     c1_js = c1.to_json_like()
     assert ConditionLike.from_spec(c1_js) == c1
+
+
+@pytest.mark.parametrize("binary_op", ("and", "or", "xor"))
+def test_to_json_like_round_trip_binary(binary_op):
+    cnd_js = {binary_op: [{"key.equal_to": 0}, {"value.dtype.equal_to": "dict"}]}
+    cnd = Condition.from_json_like(cnd_js)
+    assert cnd.to_json_like() == cnd_js

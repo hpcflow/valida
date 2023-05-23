@@ -728,6 +728,9 @@ class ConditionBinaryOp(ConditionLike):
             )
         )
 
+    def to_json_like(self):
+        return {self.FLATTEN_SYMBOL: [i.to_json_like() for i in self.children]}
+
 
 class ConditionAnd(ConditionBinaryOp):
     FLATTEN_SYMBOL = "and"
