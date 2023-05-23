@@ -9,7 +9,7 @@ from valida.rules import Rule
 
 class Schema:
     def __init__(self, rules):
-        self.rules = rules
+        self.rules = sorted(rules, key=lambda i: len(i.path))
         self.rule_tests = None  # Assigned by `self.validate`
 
     def __len__(self):
@@ -57,7 +57,6 @@ class Schema:
 
 class ValidatedData:
     def __init__(self, schema, data):
-
         self.data = data
         self.schema = schema
 
@@ -94,7 +93,6 @@ class ValidatedData:
         return sum(i.num_failures for i in self.rule_tests)
 
     def get_failures_string(self):
-
         out = ""
         rules_tested_msg = (
             f"{self.num_rules_tested}/{len(self.schema)} rules were tested."
@@ -123,7 +121,6 @@ class ValidatedData:
 
 class _TestDataSchema:
     def __init__(self, data, schema):
-
         rules = Schema.init_rules(schema["rules"])
 
         self.data = data
