@@ -2,6 +2,7 @@ import pathlib
 import pytest
 
 from valida.conditions import (
+    Condition,
     KeyDataType,
     KeyLength,
     ValueDataType,
