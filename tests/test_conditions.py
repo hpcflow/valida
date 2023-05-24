@@ -22,13 +22,11 @@ from valida.errors import InvalidCallable, MalformedConditionLikeSpec
 
 
 def test_mixed_key_index_binary_condition_raises_type_error():
-
     with pytest.raises(TypeError):
         Key.equal_to(1) | Index.equal_to(1)
 
 
 def test_mixed_key_index_second_order_binary_condition_raises_type_error():
-
     with pytest.raises(TypeError):
         vc1 = Value.equal_to(1)
         kc1 = Key.equal_to(1)
@@ -61,7 +59,6 @@ def test_null_condition_filter_includes_all_map_items():
 
 
 def test_condition_callable_aliases():
-
     assert Value.eq(1) == Value.equal_to(1)
     assert Value.lt(1) == Value.less_than(1)
     assert Value.gt(1) == Value.greater_than(1)
@@ -70,7 +67,6 @@ def test_condition_callable_aliases():
 
 
 def test_removal_of_null_condition_from_binary_ops():
-
     c1 = Value.gt(5) & NullCondition()
     assert not any(i.is_null for i in c1.flatten()[0])
 
@@ -79,7 +75,6 @@ def test_removal_of_null_condition_from_binary_ops():
 
 
 def test_equality():
-
     c1 = Value.truthy()
     c2 = Value.truthy()
     assert c1 == c2
@@ -106,7 +101,6 @@ def test_equality():
 
 
 def test_evalable_repr_for_simple_conditions():
-
     c1 = Value.equal_to(1)
     c2 = Value.lte(2)
     c3 = Value.not_equal_to(1)
@@ -119,7 +113,6 @@ def test_evalable_repr_for_simple_conditions():
 
 
 def test_evalable_repr_for_simple_list_value():
-
     ind_conds = (None, 0, Index.equal_to(0))
     val_conds = (None, 1, Value.equal_to(1))
     labels = (None, "my_list_value")
@@ -132,7 +125,6 @@ def test_evalable_repr_for_simple_list_value():
 
 
 def test_evalable_repr_for_simple_map_value():
-
     key_conds = (None, 0, Key.equal_to(0))
     val_conds = (None, 1, Value.equal_to(1))
     labels = (None, "my_list_value")
@@ -145,7 +137,6 @@ def test_evalable_repr_for_simple_map_value():
 
 
 def test_binary_op_equality():
-
     bo1 = Value.eq(1) & Value.lte(2)
     bo2 = Value.eq(1) & Value.lte(2)
     assert bo1 == bo2
@@ -164,7 +155,6 @@ def test_binary_op_equality():
 
 
 def test_commutativity_of_binary_ops():
-
     v1a = Value.lt(2)
     v1b = Value.gt(2)
     v1c = Value.eq(3)
@@ -177,19 +167,16 @@ def test_commutativity_of_binary_ops():
 
 
 def test_truthy_falsy_for_integers():
-
     data = [0, 1, 2]
     assert Value.truthy().filter(data).data == [1, 2]
     assert Value.falsy().filter(data).data == [0]
 
 
 def test_value_null_condition_list_value():
-
     assert ListValue() == ListValue(value=NullCondition())
 
 
 def test_value_null_condition_map_value():
-
     assert MapValue() == MapValue(value=NullCondition())
 
 
@@ -202,7 +189,6 @@ def test_raise_on_defined_callable_not_returning_bool():
 
 
 def test_raise_on_lambda_callable_not_returning_bool():
-
     my_callable = lambda x: None
     with pytest.raises(InvalidCallable):
         Value(my_callable).test(1)
@@ -471,17 +457,14 @@ def test_equivalence_ConditionLike_from_spec_single_arg_callable_DataPath_len_le
 
 
 def test_equivalence_ConditionLike_from_spec_multi_arg_callable_DataPath():
-    assert (
-        ConditionLike.from_spec(
-            {
-                "value.in_range": {
-                    "lower": {"path": ("A", "lower")},
-                    "upper": {"path": ("A", "upper")},
-                }
+    assert ConditionLike.from_spec(
+        {
+            "value.in_range": {
+                "lower": {"path": ("A", "lower")},
+                "upper": {"path": ("A", "upper")},
             }
-        )
-        == Value.in_range(lower=DataPath("A", "lower"), upper=DataPath("A", "upper"))
-    )
+        }
+    ) == Value.in_range(lower=DataPath("A", "lower"), upper=DataPath("A", "upper"))
 
 
 def test_ConditionLike_from_spec_DataPath_escape():

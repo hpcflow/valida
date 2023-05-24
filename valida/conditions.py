@@ -273,7 +273,6 @@ class ConditionLike:
 
     @staticmethod
     def from_spec(spec):
-
         if not spec:
             return NullCondition()
         elif not isinstance(spec, dict):
@@ -347,7 +346,6 @@ class ConditionLike:
                 condition_like = cls(condition_like, i_obj)
 
         elif spec_key_split[0] in CONDITION_DATUM_TYPES:
-
             if (
                 spec_key_split_len not in [2, 3]
                 or spec_key_split_len == 2
@@ -365,7 +363,6 @@ class ConditionLike:
             pre_proc_str = None
 
             if spec_key_split_len == 3:
-
                 try:
                     pre_proc_str = spec_key_split[1]
                     pre_proc_str = PRE_PROC_LOOKUP.get(pre_proc_str, pre_proc_str)
@@ -531,7 +528,6 @@ class ConditionLike:
 
 
 class Condition(ConditionLike):
-
     PRE_PROCESSOR = None
 
     def __init__(self, callable, *args, **kwargs):
@@ -550,7 +546,6 @@ class Condition(ConditionLike):
         self.callable = PreparedConditionCallable(callable, *args, **kwargs)
 
     def __repr__(self):
-
         out = f"{self.__class__.__name__}.{self.callable.name}"
         args = [f"{v!r}" for v in self.callable.args] + [
             f"{k}={v!r}" for k, v in self.callable.kwargs.items()
@@ -573,13 +568,11 @@ class Condition(ConditionLike):
         )
 
     def _filter(self, data, data_has_paths=False, source_data=None):
-
         processed = []
         pre_processor_error = []
         callable_error = []
         callable_false = []
         for datum in getattr(data, self.DATUM_TYPE.value)():
-
             if data_has_paths:
                 datum, _ = datum
 
@@ -595,7 +588,6 @@ class Condition(ConditionLike):
             callable_error_i = False
             callable_false_i = False
             if is_valid_i:
-
                 try:
                     result_i = self.callable(processed_i, source_data=source_data)
 
@@ -654,7 +646,6 @@ class Condition(ConditionLike):
 
 
 class FilterDatumType(enum.Enum):
-
     KEYS = "keys"
     VALUES = "values"
 
@@ -684,7 +675,6 @@ class ConditionBinaryOp(ConditionLike):
         return null_condition_binary_check(*conditions) or super().__new__(cls)
 
     def __init__(self, *conditions):
-
         super().__init__()
 
         self.children = conditions
@@ -714,7 +704,6 @@ class ConditionBinaryOp(ConditionLike):
         return False
 
     def _filter(self, data, binary_op, data_has_paths=False, source_data=None):
-
         if data_has_paths:
             # Data paths will be removed on the first child _filter:
             data_has_paths = [True, False]
@@ -775,7 +764,6 @@ class KeyLike(Condition):
     DATUM_TYPE = FilterDatumType.KEYS
 
     def filter(self, data, data_has_paths=False, source_data=None):
-
         if (isinstance(data, valida.data.Data) and data.is_list) or not isinstance(
             data, (valida.data.Data, dict)
         ):
@@ -796,7 +784,6 @@ class IndexLike(Condition):
     DATUM_TYPE = FilterDatumType.KEYS
 
     def filter(self, data, data_has_paths=False, source_data=None):
-
         if (isinstance(data, valida.data.Data) and not data.is_list) or not isinstance(
             data, (valida.data.Data, list)
         ):
