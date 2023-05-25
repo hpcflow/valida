@@ -87,6 +87,10 @@ def keys_equal_to(trial_dict, *keys):
     return set(trial_dict.keys()) == set(keys)
 
 
+def keys_is_instance(trial_dict, *classes):
+    return all(isinstance(i, classes) for i in trial_dict.keys())
+
+
 def items_contain(trial_dict, **items):
     for k, v in items.items():
         try:

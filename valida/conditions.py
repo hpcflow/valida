@@ -191,6 +191,10 @@ class MapCallables:
         return cls(call_funcs.keys_equal_to, *keys)
 
     @classmethod
+    def keys_is_instance(cls, *classes):
+        return cls(call_funcs.keys_is_instance, *classes)
+
+    @classmethod
     def items_contain(cls, **items):
         return cls(call_funcs.items_contain, **items)
 
@@ -398,7 +402,7 @@ class ConditionLike:
             cond_call_str = spec_key_split[-1]
             cond_call_str = CALLABLE_LOOKUP.get(cond_call_str, cond_call_str)
             # special case:
-            if cond_call_str == "is_instance":
+            if cond_call_str in ["is_instance", "keys_is_instance"]:
                 try:
                     # convert strings to types
                     if isinstance(spec_val, list):
