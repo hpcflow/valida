@@ -884,3 +884,18 @@ def test_part_spec_round_trip_list_value():
     parts = ["A", {"type": "list_value"}]
     dp1 = DataPath.from_part_specs(*parts)
     assert dp1.to_part_specs() == parts
+
+
+def test_simplify_round_trip_simple():
+    parts = ("configs", 0)
+    assert DataPath(*parts).simplify() == parts
+
+
+def test_simplify_round_trip_list_value_not_simplified():
+    parts = ("configs", ListValue(0))
+    assert DataPath(*parts).simplify() == parts
+
+
+def test_simplify_map_value():
+    parts = (MapValue("configs"),)
+    assert DataPath(*parts).simplify() == ("configs",)

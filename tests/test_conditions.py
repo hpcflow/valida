@@ -580,3 +580,41 @@ def test_to_json_like_round_trip_binary(binary_op):
     cnd_js = {binary_op: [{"key.equal_to": 0}, {"value.dtype.equal_to": "dict"}]}
     cnd = Condition.from_json_like(cnd_js)
     assert cnd.to_json_like() == cnd_js
+
+
+def test_condition_filter_result_key_equal_to():
+    data = {"a": 1, "b": 2}
+    cnd = Key.eq("a")
+    assert cnd.filter(data).result == [True, False]
+
+
+def test_condition_test_key_equal_to():
+    data = {"a": 1}
+    cnd = Key.eq("a")
+    assert cnd.test(data) == True
+
+
+def test_condition_test_key_equal_to_false():
+    data = {"a": 1}
+    cnd = Key.eq("b")
+    assert cnd.test(data) == False
+
+
+def test_condition_filter_result_key_equal_to_sub_data_concrete_path():
+    data = {"A": {"a": 1, "b": 2}, "B": 1}
+    path = DataPath("A")
+    cnd = Key.eq("a")
+    sub_data = path.get_data(data)
+    assert cnd.filter(sub_data).result == [True, False]
+
+
+def test_condition_filter_raises_key_equal_to_sub_data_non_concrete_path():
+    # for non-concrete paths, it doesn't make sense to filter on a key, because there
+    # might be multiple dicts that need filtering; how would that be represented in the
+    # result (which in the concrete case, corresponds to items in the single dict)?
+    data = {"A": {"a": 1, "b": 2}, "B": 1}
+    path = DataPath(MapValue("A"))
+    cnd = Key.eq("a")
+    sub_data = path.get_data(data)
+    with pytest.raises(TypeError):
+        cnd.filter(sub_data)
