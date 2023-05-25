@@ -1,5 +1,6 @@
 import copy
 import enum
+from typing import Tuple
 
 import valida.data
 import valida.conditions as cnds
@@ -67,7 +68,7 @@ class DataPath:
 
     A DataPath locates nodes within a nested data structure. It comprises an
     address of nested data types (mapping values or list items) that can be further
-    refined using one ore more conditions. Validation rules are applied (i.e. tested) at
+    refined using one or more conditions. Validation rules are applied (i.e. tested) at
     the nodes identified by a ContainerPath.
 
     """
@@ -448,6 +449,41 @@ class DataPath:
 
         return out
 
+    def simplify(self) -> Tuple:
+        """Convert parts to simple primitives where possible, and leave other parts alone.
+
+        The output from this method can be passed back to the `DataPath` constructor
+        `parts` argument to generate the same `DataPath`.
+
+        """
+        out = []
+        for part in self.parts:
+            # note: we don't "simplify" a `ListValue` like `ListValue(0)` (meaning index 0
+            # of a list), because if passing the result back into a new  `DataPath`, a
+            # lone integer will be converted to a `MapOrListValue`, not a `ListValue`.
+            is_single_cond = not part.condition.flatten()[1]
+            if (
+                isinstance(part, MapValue)
+                and is_single_cond
+                and isinstance(part.condition, cnds.Key)
+                and part.condition.callable.name == "equal_to"
+            ):
+                out.append(part.condition.callable.kwargs["value"])
+            elif (
+                isinstance(part, MapOrListValue)
+                and part.condition == cnds.NullCondition()
+                and isinstance(part.list_condition, cnds.Index)
+                and not part.list_condition.flatten()[1]
+                and part.list_condition.callable.name == "equal_to"
+                and isinstance(part.map_condition, cnds.Key)
+                and not part.map_condition.flatten()[1]
+                and part.map_condition.callable.name == "equal_to"
+            ):
+                out.append(part.list_condition.callable.kwargs["value"])
+            else:
+                out.append(part)
+        return tuple(out)
+
 
 class ContainerValue:
     """Class for representing a container value (i.e. an item within either a list or a
@@ -724,7 +760,7 @@ class MapOrListValue(ContainerValue):
 
     def __repr__(self):
         return (
-            f"{self.__class__.__name__}(condition={self.condition!r}"
+            f"{self.__class__.__name__}(condition={self.condition!r},"
             f" list_condition={self.list_condition!r}, map_condition={self.map_condition!r}"
             f'{f", label={self.label!r}" if self.label else ""}'
             f")"

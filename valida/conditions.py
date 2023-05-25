@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import enum
+from typing import Dict, List
 import operator
 import pathlib
 import warnings
@@ -17,6 +20,16 @@ from valida.utils import (
     get_func_args_by_kind,
     null_condition_binary_check,
 )
+
+INV_DTYPE_LOOKUP = {
+    int: "int",
+    float: "float",
+    str: "str",
+    list: "list",
+    dict: "dict",
+    bool: "bool",
+    pathlib.Path: "path",
+}
 
 
 class PreparedConditionCallable:
@@ -530,6 +543,36 @@ class ConditionLike:
     def from_json_like(cls, json_like, *args, **kwargs):
         return cls.from_spec(json_like)
 
+    def get_always_applicable_key_conditions(self) -> List[Condition]:
+        """Get `allowed_keys` and `required_keys` conditions that always apply."""
+        out = []
+        conditions, binary_ops = self.flatten()
+        if not binary_ops or set(binary_ops) == {"and"}:
+            for i in conditions:
+                if i.callable.name in ("allowed_keys", "required_keys"):
+                    out.append(i)
+        return out
+
+    def get_always_applicable_type_like_conditions(
+        self,
+    ) -> Dict[str, List[Condition]]:
+        """Get `KeyDataType` and `ValueDataType` conditions that always apply."""
+        out = {"key_data_type": [], "value_data_type": []}
+        conditions, binary_ops = self.flatten()
+        if not binary_ops or set(binary_ops) == {"and"}:
+            for i in conditions:
+                if isinstance(i, KeyDataType):
+                    out["key_data_type"].append(i)
+                elif isinstance(i, ValueDataType):
+                    out["value_data_type"].append(i)
+                elif isinstance(i, Value) and i.callable.name == "is_instance":
+                    out["value_data_type"].append(i)
+                elif isinstance(i, Value) and i.callable.name == "in_":
+                    out["value_data_type"].append(i)
+                elif isinstance(i, Value) and i.callable.name == "keys_is_instance":
+                    out["key_data_type"].append(i)
+        return out
+
 
 class Condition(ConditionLike):
     PRE_PROCESSOR = None
@@ -623,16 +666,6 @@ class Condition(ConditionLike):
     def to_json_like(self, *args, **kwargs):
         # need to return a single-item dict that can be passed to `from_spec` for
         # round-tripping.
-
-        INV_DTYPE_LOOKUP = {
-            int: "int",
-            float: "float",
-            str: "str",
-            list: "list",
-            dict: "dict",
-            bool: "bool",
-            pathlib.Path: "path",
-        }
 
         # TODO: doesn't work for BinaryOps?
         key = f"{self.js_like_label}.{self.callable.func.__name__}"
