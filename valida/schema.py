@@ -3,6 +3,7 @@ from pathlib import Path
 
 from ruamel.yaml import YAML
 from valida.data import Data
+from valida.datapath import Container, DataPath
 
 from valida.rules import Rule
 
@@ -23,6 +24,13 @@ class Schema:
         ):
             return True
         return False
+
+    def add_schema(self, schema, root_path: DataPath):
+        for rule in schema.rules:
+            rule.path = root_path / rule.path
+            self.rules.append(rule)
+
+        self.rules = sorted(self.rules, key=lambda i: len(i.path))
 
     @staticmethod
     def init_rules(rules_dat):
