@@ -6,7 +6,6 @@ from valida.data import Data
 
 @pytest.fixture
 def list_data_expected_truth_tables():
-
     c1a = Value.lt(2)
     c1b = Value.gt(2)
     c1c = Value.eq(3)
@@ -63,7 +62,6 @@ def list_data_expected_truth_tables():
 
 @pytest.fixture
 def list_data_actual_truth_tables(list_data_expected_truth_tables):
-
     c1a = list_data_expected_truth_tables["conditions"][0]
     c1b = list_data_expected_truth_tables["conditions"][1]
     c1c = list_data_expected_truth_tables["conditions"][2]
@@ -100,7 +98,6 @@ def list_data_actual_truth_tables(list_data_expected_truth_tables):
 def test_filter_truth_tables(
     list_data_expected_truth_tables, list_data_actual_truth_tables
 ):
-
     assert (
         list_data_expected_truth_tables["truth_tables"][0]
         == list_data_actual_truth_tables["truth_tables"][0]
@@ -118,7 +115,6 @@ def test_filter_truth_tables(
 def test_binary_op_filter_truth_tables(
     list_data_expected_truth_tables, list_data_actual_truth_tables
 ):
-
     assert (
         list_data_expected_truth_tables["binary_truth_tables"][0]
         == list_data_actual_truth_tables["binary_truth_tables"][0]
@@ -138,7 +134,6 @@ def test_binary_op_filter_truth_tables(
 def test_ternary_op_filter_truth_tables(
     list_data_expected_truth_tables, list_data_actual_truth_tables
 ):
-
     assert (
         list_data_expected_truth_tables["ternary_truth_tables"][0]
         == list_data_actual_truth_tables["ternary_truth_tables"][0]

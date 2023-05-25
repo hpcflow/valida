@@ -8,7 +8,6 @@ from valida.errors import MalformedRuleSpec
 
 class Rule:
     def __init__(self, path, condition, cast=None):
-
         if not isinstance(path, DataPath):
             path = DataPath(*path)
 
@@ -39,7 +38,6 @@ class Rule:
         cond = ConditionLike.from_spec(spec["condition"])
         cast = spec.get("cast")
         for cast_from in list((cast or {}).keys()):
-
             cast_to = cast.pop(cast_from)
             try:
                 cast_from = CAST_DTYPE_LOOKUP[cast_from]
@@ -76,7 +74,6 @@ class Rule:
             return out
 
     def test(self, data, _data_copy=None):
-
         if not isinstance(data, Data):
             data = Data(data)
 
@@ -105,7 +102,6 @@ class Rule:
 
 class RuleTestFailureItem:
     def __init__(self, rule_test, index, value, path, reasons):
-
         self.rule_test = rule_test
         self.index = index
         self.value = value
@@ -122,7 +118,6 @@ class RuleTestFailureItem:
 
 class RuleTest:
     def __init__(self, rule, data):
-
         if not isinstance(data, Data):
             data = Data(data)
 
@@ -178,7 +173,6 @@ class RuleTest:
         print(self.get_failures_string())
 
     def _test(self):
-
         sub_data = self.rule.path.get_data(self.data, return_paths=True)
         path_exists = sub_data not in [None, []]
 
