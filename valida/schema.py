@@ -1,11 +1,98 @@
 import copy
+import html
 from pathlib import Path
+from typing import Any, Dict, List, Union
 
 from ruamel.yaml import YAML
+from valida.conditions import INV_DTYPE_LOOKUP, KeyDataType, ValueDataType
 from valida.data import Data
-from valida.datapath import Container, DataPath
+from valida.datapath import Container, DataPath, ListValue, MapValue
 
 from valida.rules import Rule
+
+
+def format_map_key_value_data_type_conditions(
+    cnds: List[Union[KeyDataType, ValueDataType]]
+) -> str:
+    out = []
+    for i in cnds:
+        out_i = ""
+        if i.callable.name == "equal_to":
+            val = i.callable.kwargs["value"]
+            try:
+                val = INV_DTYPE_LOOKUP[val]
+            except KeyError:
+                pass
+            out_i += f"{val}"
+        elif i.callable.name in ("is_instance", "keys_is_instance"):
+            arg_concat_i = []
+            for arg_j in i.callable.args:
+                try:
+                    arg_j = INV_DTYPE_LOOKUP[arg_j]
+                except KeyError:
+                    pass
+                arg_concat_i.append(arg_j)
+            arg_concat_i_str = " | ".join(str(i) for i in arg_concat_i)
+            out_i += arg_concat_i_str
+        elif i.callable.name == "in_":
+            arg_concat_i = (repr(j) for j in i.callable.kwargs["value"])
+            arg_concat_i_str = "(" + " | ".join(arg_concat_i) + ")"
+            out_i += arg_concat_i_str
+        out.append(out_i)
+    if len(out) > 1:
+        out_str = ", ".join(out)
+    else:
+        out_str = out[0]
+    return out_str
+
+
+def write_tree_template(tree, _path=None):
+    empty_map_value_str = '<span class="null-condition-path-elem">map-value</span>'
+    empty_lst_value_str = '<span class="null-condition-path-elem">list-value</span>'
+    out = f'<div class="tree node" data-node-path="{html.escape(str(_path) or "")}">'
+    for child in tree:
+        out += f'<div class="tree node-child">'
+
+        path_fmt_lst = []
+        for i in child["path"]:
+            if i == MapValue():
+                i = empty_map_value_str
+            elif i == ListValue():
+                i = empty_lst_value_str
+            else:
+                i = html.escape(str(i))
+            path_fmt_lst.append(str(i))
+
+        path_fmt = " → ".join(path_fmt_lst)
+        if path_fmt:
+            out += f'<div class="tree path-name">Path: {path_fmt}</div>'
+
+        chd_type = child.get("type_fmt")
+        chd_key_type = child.get("key_type_fmt")
+        chd_cnd = child.get("condition")
+        if chd_type:
+            chd_type = str(chd_type)
+            out += f'<div class="tree type-name">Type: {html.escape(chd_type)}</div>'
+            if chd_key_type:
+                chd_key_type = str(chd_key_type)
+                out += f'<div class="tree key-type-name">Key type: {html.escape(chd_key_type)}</div>'
+        elif chd_cnd:
+            chd_cnd = str(chd_cnd)
+            out += (
+                f'<div class="tree condition">Condition: {html.escape(chd_cnd)}</div>'
+            )
+
+        chd_req = child.get("required")
+        if _path is None:
+            chd_req = True
+        out += f'<div class="tree required-name">{"required" if chd_req else "optional"}</div>'
+        if "children" in child:
+            out += write_tree_template(child["children"], _path=child["path"])
+
+        out += f"</div>"
+
+    out += "</div>"
+    return out
 
 
 class Schema:
@@ -61,6 +148,92 @@ class Schema:
         if not isinstance(data, Data):
             data = Data(data)
         return ValidatedData(self, data)
+
+    def to_tree(self, nested=False) -> List[Dict[str, Any]]:
+        """Generate a more compact summary of the schema rules that can be later formatted
+        in HTML, for example."""
+
+        IMP_TYPE_LOOKUP = {
+            Container.MAP: "dict",
+            Container.LIST: "list",
+        }
+
+        items = {}
+        for rule in self.rules:
+            path_simple = rule.path.simplify()
+            path_str = tuple(str(i) for i in rule.path.parts)  # use as a dict key
+            if path_str not in items:
+                items[path_str] = {}
+
+            items[path_str]["condition"] = rule.condition
+            items[path_str]["path"] = path_simple
+
+            # add parent types that are implicitly defined:
+            imp_types = rule.path.resolve_implicit_types()
+            if imp_types:
+                for idx, imp_type in enumerate(imp_types):
+                    if idx == 0:
+                        parent_path = []
+                    else:
+                        parent_path = rule.path.parts[:idx]
+                    parent_path_str = tuple(str(i) for i in parent_path)
+
+                    if parent_path_str not in items:
+                        items[parent_path_str] = {}
+                    items[parent_path_str]["type"] = IMP_TYPE_LOOKUP[imp_type]
+                    items[parent_path_str]["type_fmt"] = items[parent_path_str]["type"]
+
+            key_conditions = rule.condition.get_always_applicable_key_conditions()
+            for key_cnd in key_conditions:
+                for key in key_cnd.callable.args:
+                    path_simple_i = tuple(list(path_simple) + [key])
+                    path_i = rule.path / DataPath(key)
+                    path_i_str = tuple(str(i) for i in path_i)
+                    if path_i_str not in items:
+                        items[path_i_str] = {"path": path_simple_i}
+                    items[path_i_str]["required"] = (
+                        key_cnd.callable.name == "required_keys"
+                    )
+
+            kv_conditions = rule.condition.get_always_applicable_type_like_conditions()
+            if kv_conditions["key_data_type"]:
+                items[path_str]["key_type"] = kv_conditions["key_data_type"]
+                items[path_str][
+                    "key_type_fmt"
+                ] = format_map_key_value_data_type_conditions(
+                    items[path_str]["key_type"]
+                )
+            if kv_conditions["value_data_type"]:
+                items[path_str]["type"] = kv_conditions["value_data_type"]
+                items[path_str]["type_fmt"] = format_map_key_value_data_type_conditions(
+                    items[path_str]["type"]
+                )
+
+        # convert to a list with parent references
+        items_lst = []
+        parent_refs = {tuple(): -1}
+        for k, v in items.items():
+            parent_path = k[:-1]
+            v["parent"] = parent_refs[parent_path]
+            v["path_str"] = k
+            items_lst.append(v)
+            parent_refs[k] = len(items_lst) - 1
+
+        if nested:
+            # start popping from the end:
+            parent_idx_map = sorted(
+                [(idx, i["parent"]) for idx, i in enumerate(items_lst)],
+                key=lambda x: (x[0], x[1]),
+                reverse=True,
+            )
+            for lst_idx, par_idx in parent_idx_map:
+                if par_idx == -1:
+                    continue
+                if "children" not in items_lst[par_idx]:
+                    items_lst[par_idx]["children"] = []
+                items_lst[par_idx]["children"].append(items_lst.pop(lst_idx))
+
+        return items_lst
 
 
 class ValidatedData:
