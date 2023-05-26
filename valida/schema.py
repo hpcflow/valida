@@ -1,6 +1,7 @@
 import copy
 import html
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Union
 
 from ruamel.yaml import YAML
@@ -85,7 +86,6 @@ def write_tree_html(tree, _path=None):
         path_title = " → ".join(path_anchor_lst)
         head_anchor = f"#{path_anchor}"
 
-        # if _path is not None:
         out += f'<section class="valida-tree-section" id={path_anchor}>'
 
         if path_fmt:
@@ -93,6 +93,8 @@ def write_tree_html(tree, _path=None):
             path_fmt_final = f"{path_fmt_lst[-1]}"  # not showing whole path?
             out += f'<div class="valida-tree path-name"><h{head_lev} title="{path_title}">{path_fmt_final}<a class="headerlink" href="{head_anchor}">#</a></h{head_lev}></div>'
 
+        out += f'<div class="valida-tree node-info">'
+        out += f'<div class="valida-tree node-metadata">'
         type_line_lst = []
         chd_type = child.get("type_fmt")
         chd_key_type = child.get("key_type_fmt")
@@ -124,14 +126,22 @@ def write_tree_html(tree, _path=None):
             out += (
                 f'<div class="tree condition">Condition: {html.escape(chd_cnd)}</div>'
             )
+        out += "</div>"  # node-metadata
+
+        chd_doc = child.get("doc")
+        if chd_doc:
+            for doc_para in chd_doc:
+                # search for back ticks and replace with `<code>` tags:
+                doc_para = html.escape(doc_para)
+                doc_para = re.sub(r"`(.*?)`", r"<code>\1</code>", doc_para)
+                out += f'<p class="valida-tree doc">{doc_para}</p>'
+        out += "</div>"  # node-info
 
         if "children" in child:
             out += write_tree_html(child["children"], _path=child["path"])
 
-        # if _path is not None:
         out += "</section>"
-
-        out += f"</div>"
+        out += "</div>"
 
     out += "</div>"
     return out
@@ -231,6 +241,7 @@ class Schema:
 
             items[path_str]["condition"] = rule.condition
             items[path_str]["path"] = path_simple
+            items[path_str]["doc"] = rule.doc
 
             # add parent types that are implicitly defined:
             imp_types = rule.path.resolve_implicit_types()[len(from_path_str) :]
