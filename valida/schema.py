@@ -46,7 +46,7 @@ def format_map_key_value_data_type_conditions(
     return out_str
 
 
-def write_tree_template(tree, _path=None):
+def write_tree_html(tree, _path=None):
     empty_map_str = "map-value"
     empty_lst_str = "list-value"
     empty_map_span = (
@@ -126,7 +126,7 @@ def write_tree_template(tree, _path=None):
             )
 
         if "children" in child:
-            out += write_tree_template(child["children"], _path=child["path"])
+            out += write_tree_html(child["children"], _path=child["path"])
 
         # if _path is not None:
         out += "</section>"
