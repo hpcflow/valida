@@ -284,9 +284,10 @@ class Schema:
             parent_refs[k] = len(items_lst) - 1
 
         # add the final component of `from_path` back on to all paths:
-        for item in items_lst:
-            item["path"] = tuple([from_path_simple[-1]] + list(item["path"]))
-            item["path_str"] = tuple([from_path_str[-1]] + list(item["path_str"]))
+        if from_path_simple:
+            for item in items_lst:
+                item["path"] = tuple([from_path_simple[-1]] + list(item["path"]))
+                item["path_str"] = tuple([from_path_str[-1]] + list(item["path_str"]))
 
         if nested:
             # start popping from the end:
