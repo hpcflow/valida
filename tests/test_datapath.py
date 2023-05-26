@@ -12,7 +12,6 @@ from valida.data import Data
 
 
 def test_alternative_map_value_key_spec():
-
     mv1 = MapValue("A")
     mv2 = MapValue(key="A")
     mv3 = MapValue(Key.equal_to("A"))
@@ -22,7 +21,6 @@ def test_alternative_map_value_key_spec():
 
 
 def test_alternative_map_value_key_value_spec():
-
     c2 = Value.lte(3)
     mk1 = Key.in_(["a", "b", "c"])
     mv1 = MapValue(key=mk1, value=c2)
@@ -41,7 +39,6 @@ def test_map_value_filter_on_combined_key_value():
 
 
 def test_get_data_map_values_only():
-
     data = {
         "A1": {
             "X1": 1,
@@ -195,27 +192,21 @@ def test_equivalence_of_from_specs_with_condition_less_ListValue():
 
 
 def test_equivalence_ContainerValue_from_spec_with_ListValue():
-    assert (
-        ContainerValue.from_spec(
-            {
-                "type": "list_value",
-                "value": {"value.eq": 1},
-            }
-        )
-        == ListValue(value=Value.eq(1))
-    )
+    assert ContainerValue.from_spec(
+        {
+            "type": "list_value",
+            "value": {"value.eq": 1},
+        }
+    ) == ListValue(value=Value.eq(1))
 
 
 def test_equivalence_ContainerValue_from_spec_with_MapValue():
-    assert (
-        ContainerValue.from_spec(
-            {
-                "type": "map_value",
-                "value": {"value.eq": 1},
-            }
-        )
-        == MapValue(value=Value.eq(1))
-    )
+    assert ContainerValue.from_spec(
+        {
+            "type": "map_value",
+            "value": {"value.eq": 1},
+        }
+    ) == MapValue(value=Value.eq(1))
 
 
 def test_DataPath_is_concrete_true():
@@ -326,7 +317,6 @@ def test_ContainerValue_from_spec_raise_on_ListValue_with_incompatible_index_con
 
 
 def test_Data_get_DataPath_expected_return_with_MapOrListValue():
-
     data = Data(
         {
             "A": [900, 910, 920],
@@ -708,7 +698,6 @@ def test_DataPath_get_data_raise_on_MULTI_TYPE_single_with_multiple_matches():
 
 
 def test_expected_return_DataPath_get_data_MULTI_TYPE_first():
-
     data = Data(
         {
             "c": [1, 2, 3],
@@ -720,7 +709,6 @@ def test_expected_return_DataPath_get_data_MULTI_TYPE_first():
 
 
 def test_expected_return_DataPath_get_data_MULTI_TYPE_last():
-
     data = Data(
         {
             "c": [1, 2, 3],
@@ -815,7 +803,6 @@ def test_equivalent_DataPath_from_str_concrete_path_get_data():
 
 
 def test_equivalent_DataPath_from_str_non_concrete_path_get_data():
-
     data = Data({"A": {"B": [9, 8, 7]}})
     # coerce to a non-concrete with the MapValue, since `DataPath.from_str` produces a
     # non-concrete path in this case due to the ambiguity of the integer part
@@ -885,3 +872,30 @@ def test_part_spec_round_trip_map_keys_or_list_index():
     parts = ["inputs", "p1", "b", 0]
     dp1 = DataPath.from_part_specs(*parts)
     assert dp1.to_part_specs() == parts
+
+
+def test_part_spec_round_trip_map_value():
+    parts = ["A", {"type": "map_value"}]
+    dp1 = DataPath.from_part_specs(*parts)
+    assert dp1.to_part_specs() == parts
+
+
+def test_part_spec_round_trip_list_value():
+    parts = ["A", {"type": "list_value"}]
+    dp1 = DataPath.from_part_specs(*parts)
+    assert dp1.to_part_specs() == parts
+
+
+def test_simplify_round_trip_simple():
+    parts = ("configs", 0)
+    assert DataPath(*parts).simplify() == parts
+
+
+def test_simplify_round_trip_list_value_not_simplified():
+    parts = ("configs", ListValue(0))
+    assert DataPath(*parts).simplify() == parts
+
+
+def test_simplify_map_value():
+    parts = (MapValue("configs"),)
+    assert DataPath(*parts).simplify() == ("configs",)

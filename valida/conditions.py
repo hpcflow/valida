@@ -1,7 +1,10 @@
+from __future__ import annotations
+import copy
+
 import enum
+from typing import Dict, List
 import operator
 import pathlib
-from subprocess import call
 import warnings
 
 
@@ -18,6 +21,16 @@ from valida.utils import (
     get_func_args_by_kind,
     null_condition_binary_check,
 )
+
+INV_DTYPE_LOOKUP = {
+    int: "int",
+    float: "float",
+    str: "str",
+    list: "list",
+    dict: "dict",
+    bool: "bool",
+    pathlib.Path: "path",
+}
 
 
 class PreparedConditionCallable:
@@ -192,6 +205,10 @@ class MapCallables:
         return cls(call_funcs.keys_equal_to, *keys)
 
     @classmethod
+    def keys_is_instance(cls, *classes):
+        return cls(call_funcs.keys_is_instance, *classes)
+
+    @classmethod
     def items_contain(cls, **items):
         return cls(call_funcs.items_contain, **items)
 
@@ -274,7 +291,6 @@ class ConditionLike:
 
     @staticmethod
     def from_spec(spec):
-
         if not spec:
             return NullCondition()
         elif not isinstance(spec, dict):
@@ -348,7 +364,6 @@ class ConditionLike:
                 condition_like = cls(condition_like, i_obj)
 
         elif spec_key_split[0] in CONDITION_DATUM_TYPES:
-
             if (
                 spec_key_split_len not in [2, 3]
                 or spec_key_split_len == 2
@@ -366,7 +381,6 @@ class ConditionLike:
             pre_proc_str = None
 
             if spec_key_split_len == 3:
-
                 try:
                     pre_proc_str = spec_key_split[1]
                     pre_proc_str = PRE_PROC_LOOKUP.get(pre_proc_str, pre_proc_str)
@@ -402,7 +416,7 @@ class ConditionLike:
             cond_call_str = spec_key_split[-1]
             cond_call_str = CALLABLE_LOOKUP.get(cond_call_str, cond_call_str)
             # special case:
-            if cond_call_str == "is_instance":
+            if cond_call_str in ["is_instance", "keys_is_instance"]:
                 try:
                     # convert strings to types
                     if isinstance(spec_val, list):
@@ -481,7 +495,7 @@ class ConditionLike:
                     condition = cond_method(*spec_val)
                 else:
                     raise MalformedConditionLikeSpec(
-                        f"Condition callable {cond_method} accepts multuple positional-or-"
+                        f"Condition callable {cond_method} accepts multiple positional-or-"
                         f"keyword arguments, and so must be parametrised with a dict or "
                         f"list/tuple of values, but the following was supplied: {spec_val!r}"
                     )
@@ -530,9 +544,38 @@ class ConditionLike:
     def from_json_like(cls, json_like, *args, **kwargs):
         return cls.from_spec(json_like)
 
+    def get_always_applicable_key_conditions(self) -> List[Condition]:
+        """Get `allowed_keys` and `required_keys` conditions that always apply."""
+        out = []
+        conditions, binary_ops = self.flatten()
+        if not binary_ops or set(binary_ops) == {"and"}:
+            for i in conditions:
+                if i.callable.name in ("allowed_keys", "required_keys"):
+                    out.append(i)
+        return out
+
+    def get_always_applicable_type_like_conditions(
+        self,
+    ) -> Dict[str, List[Condition]]:
+        """Get `KeyDataType` and `ValueDataType` conditions that always apply."""
+        out = {"key_data_type": [], "value_data_type": []}
+        conditions, binary_ops = self.flatten()
+        if not binary_ops or set(binary_ops) == {"and"}:
+            for i in conditions:
+                if isinstance(i, KeyDataType):
+                    out["key_data_type"].append(i)
+                elif isinstance(i, ValueDataType):
+                    out["value_data_type"].append(i)
+                elif isinstance(i, Value) and i.callable.name == "is_instance":
+                    out["value_data_type"].append(i)
+                elif isinstance(i, Value) and i.callable.name == "in_":
+                    out["value_data_type"].append(i)
+                elif isinstance(i, Value) and i.callable.name == "keys_is_instance":
+                    out["key_data_type"].append(i)
+        return out
+
 
 class Condition(ConditionLike):
-
     PRE_PROCESSOR = None
 
     def __init__(self, callable, *args, **kwargs):
@@ -551,7 +594,6 @@ class Condition(ConditionLike):
         self.callable = PreparedConditionCallable(callable, *args, **kwargs)
 
     def __repr__(self):
-
         out = f"{self.__class__.__name__}.{self.callable.name}"
         args = [f"{v!r}" for v in self.callable.args] + [
             f"{k}={v!r}" for k, v in self.callable.kwargs.items()
@@ -574,13 +616,11 @@ class Condition(ConditionLike):
         )
 
     def _filter(self, data, data_has_paths=False, source_data=None):
-
         processed = []
         pre_processor_error = []
         callable_error = []
         callable_false = []
         for datum in getattr(data, self.DATUM_TYPE.value)():
-
             if data_has_paths:
                 datum, _ = datum
 
@@ -596,7 +636,6 @@ class Condition(ConditionLike):
             callable_error_i = False
             callable_false_i = False
             if is_valid_i:
-
                 try:
                     result_i = self.callable(processed_i, source_data=source_data)
 
@@ -629,25 +668,70 @@ class Condition(ConditionLike):
         # need to return a single-item dict that can be passed to `from_spec` for
         # round-tripping.
 
-        INV_DTYPE_LOOKUP = {
-            int: "int",
-            float: "float",
-            str: "str",
-            list: "list",
-            dict: "dict",
-            bool: "bool",
-            pathlib.Path: "path",
-        }
-
-        # TODO: doesn't work for BinaryOps?
+        # Get the spec key:
         key = f"{self.js_like_label}.{self.callable.func.__name__}"
 
-        if len(self.callable.kwargs) == 1:
-            _, val = next(iter(self.callable.kwargs.items()))
-            if "dtype" in key:
-                val = INV_DTYPE_LOOKUP[val]
+        cast_types = "dtype" in key or "is_instance" in key
 
-        out = {key: val}
+        # Get the spec value (the value of the returned dict):
+
+        func_args = get_func_args_by_kind(self.callable.func, exclude_first=True)
+        if not any(
+            func_args[i]
+            for i in ("POSITIONAL_OR_KEYWORD", "VAR_POSITIONAL", "VAR_KEYWORD")
+        ):
+            # no arguments, set spec val to None
+            spec_val = None
+
+        elif len(func_args["POSITIONAL_OR_KEYWORD"]) == 1 and not any(
+            func_args[i] for i in ("VAR_POSITIONAL", "VAR_KEYWORD")
+        ):
+            # single pos-or-kw and nothing else, spec val is just that single value:
+            spec_val = copy.deepcopy(next(iter(self.callable.kwargs.values())))
+            if cast_types:
+                spec_val = INV_DTYPE_LOOKUP[spec_val]
+
+        elif len(func_args["POSITIONAL_OR_KEYWORD"]) > 1 and not any(
+            func_args[i] for i in ("VAR_POSITIONAL", "VAR_KEYWORD")
+        ):
+            # more than one pos-or-kw and nothing else, spec val is a dict of kwargs:
+            spec_val = copy.deepcopy(self.callable.kwargs)
+            if cast_types:
+                for k, v in spec_val.items():
+                    try:
+                        spec_val[k] = INV_DTYPE_LOOKUP[v]
+                    except KeyError:
+                        continue
+
+        elif len(func_args["VAR_POSITIONAL"]) == 1 and not any(
+            func_args[i] for i in ("POSITIONAL_OR_KEYWORD", "VAR_KEYWORD")
+        ):
+            # one var-positional and nothing else, spec val is a list of args:
+            spec_val = copy.deepcopy(list(self.callable.args))
+            if cast_types:
+                for idx, val in enumerate(spec_val):
+                    try:
+                        spec_val[idx] = INV_DTYPE_LOOKUP[val]
+                    except KeyError:
+                        continue
+
+        elif len(func_args["VAR_KEYWORD"]) == 1 and not func_args["VAR_POSITIONAL"]:
+            # zero or more pos-or-kw args and a var-kw arg, spec val is a dict of kwargs:
+            spec_val = copy.deepcopy(self.callable.kwargs)
+            if cast_types:
+                for k, v in spec_val.items():
+                    try:
+                        spec_val[k] = INV_DTYPE_LOOKUP[v]
+                    except KeyError:
+                        continue
+
+        else:
+            raise NotImplementedError(
+                f"Condition callable arguments {self.callable.ags!r} and keyword-arguments "
+                f"{self.callable.kwargs!r} cannot be written in JSON form."
+            )
+
+        out = {key: spec_val}
         if "shared_data" in kwargs:
             return out, kwargs["shared_data"]
         else:
@@ -655,7 +739,6 @@ class Condition(ConditionLike):
 
 
 class FilterDatumType(enum.Enum):
-
     KEYS = "keys"
     VALUES = "values"
 
@@ -685,7 +768,6 @@ class ConditionBinaryOp(ConditionLike):
         return null_condition_binary_check(*conditions) or super().__new__(cls)
 
     def __init__(self, *conditions):
-
         super().__init__()
 
         self.children = conditions
@@ -715,7 +797,6 @@ class ConditionBinaryOp(ConditionLike):
         return False
 
     def _filter(self, data, binary_op, data_has_paths=False, source_data=None):
-
         if data_has_paths:
             # Data paths will be removed on the first child _filter:
             data_has_paths = [True, False]
@@ -728,6 +809,9 @@ class ConditionBinaryOp(ConditionLike):
                 for idx, i in enumerate(self.children)
             )
         )
+
+    def to_json_like(self):
+        return {self.FLATTEN_SYMBOL: [i.to_json_like() for i in self.children]}
 
 
 class ConditionAnd(ConditionBinaryOp):
@@ -773,7 +857,6 @@ class KeyLike(Condition):
     DATUM_TYPE = FilterDatumType.KEYS
 
     def filter(self, data, data_has_paths=False, source_data=None):
-
         if (isinstance(data, valida.data.Data) and data.is_list) or not isinstance(
             data, (valida.data.Data, dict)
         ):
@@ -794,7 +877,6 @@ class IndexLike(Condition):
     DATUM_TYPE = FilterDatumType.KEYS
 
     def filter(self, data, data_has_paths=False, source_data=None):
-
         if (isinstance(data, valida.data.Data) and not data.is_list) or not isinstance(
             data, (valida.data.Data, list)
         ):

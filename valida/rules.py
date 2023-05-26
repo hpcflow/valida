@@ -1,4 +1,5 @@
 import copy
+from typing import List, Optional
 from valida.conditions import ConditionLike
 from valida.casting import CAST_DTYPE_LOOKUP, CAST_LOOKUP
 from valida.data import Data, set_datum
@@ -7,14 +8,14 @@ from valida.errors import MalformedRuleSpec
 
 
 class Rule:
-    def __init__(self, path, condition, cast=None):
-
+    def __init__(self, path, condition, cast=None, doc: Optional[List[str]] = None):
         if not isinstance(path, DataPath):
             path = DataPath(*path)
 
         self.path = path
         self.condition = condition
         self.cast = cast
+        self.doc = doc
 
     def __repr__(self):
         return (
@@ -37,9 +38,18 @@ class Rule:
     def from_spec(cls, spec):
         path = DataPath.from_part_specs(*spec["path"])
         cond = ConditionLike.from_spec(spec["condition"])
+        doc = spec.get("doc")
+
+        if doc:
+            if not isinstance(doc, list):
+                doc = [doc]
+
+            # strip final new lines:
+            for idx, i in enumerate(doc):
+                doc[idx] = i.strip()
+
         cast = spec.get("cast")
         for cast_from in list((cast or {}).keys()):
-
             cast_to = cast.pop(cast_from)
             try:
                 cast_from = CAST_DTYPE_LOOKUP[cast_from]
@@ -58,7 +68,7 @@ class Rule:
                     f"Unsupported cast from type {cast_from!r} to type {cast_to!r}."
                 )
 
-        return cls(path=path, condition=cond, cast=cast)
+        return cls(path=path, condition=cond, cast=cast, doc=doc)
 
     @classmethod
     def from_json_like(cls, json_like, *args, **kwargs):
@@ -76,7 +86,6 @@ class Rule:
             return out
 
     def test(self, data, _data_copy=None):
-
         if not isinstance(data, Data):
             data = Data(data)
 
@@ -105,7 +114,6 @@ class Rule:
 
 class RuleTestFailureItem:
     def __init__(self, rule_test, index, value, path, reasons):
-
         self.rule_test = rule_test
         self.index = index
         self.value = value
@@ -122,7 +130,6 @@ class RuleTestFailureItem:
 
 class RuleTest:
     def __init__(self, rule, data):
-
         if not isinstance(data, Data):
             data = Data(data)
 
@@ -178,7 +185,6 @@ class RuleTest:
         print(self.get_failures_string())
 
     def _test(self):
-
         sub_data = self.rule.path.get_data(self.data, return_paths=True)
         path_exists = sub_data not in [None, []]
 

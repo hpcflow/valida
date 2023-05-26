@@ -3,26 +3,22 @@ from valida.errors import MalformedRuleSpec
 
 from valida.rules import Rule
 from valida.casting import cast_string_to_bool
-from valida.conditions import Value
+from valida.conditions import Key, Value
 from valida.data import Data
 from valida.datapath import DataPath, MapValue
 
 
 # assert rule from spec check
 def test_equivalence_of_Rule_from_spec():
-    assert (
-        Rule.from_spec(
-            {
-                "path": ["A", "B", "C"],
-                "condition": {"value.dtype.eq": int},
-            }
-        )
-        == Rule(["A", "B", "C"], Value.dtype.eq(int))
-    )
+    assert Rule.from_spec(
+        {
+            "path": ["A", "B", "C"],
+            "condition": {"value.dtype.eq": int},
+        }
+    ) == Rule(["A", "B", "C"], Value.dtype.eq(int))
 
 
 def test_equivalence_Rule_test_concrete_DataPath_with_without():
-
     data = Data({"a": [1, 2, 3], "b": 2})
     condition = Value.dtype.equal_to(int)
 
@@ -35,6 +31,90 @@ def test_equivalence_Rule_test_concrete_DataPath_with_without():
     r2 = Rule(path_concrete_2, condition).test(data)
 
     assert r1 == r2
+
+
+def test_rule_test_dict_value_with_Data():
+    data = Data({"A": 1})
+    path = DataPath("A")
+    rule = Rule(path=path, condition=Value.eq(1))
+    assert rule.test(data).is_valid
+
+
+def test_rule_test_dict_value_without_Data():
+    data = {"A": 1}
+    path = DataPath("A")
+    rule = Rule(path=path, condition=Value.eq(1))
+    assert rule.test(data).is_valid
+
+
+def test_rule_test_nested_list_value():
+    data = {"A": [0, 1, 2]}
+    path = DataPath("A", 1)
+    rule = Rule(path=path, condition=Value.eq(1))
+    assert rule.test(data).is_valid
+
+
+def test_rule_test_value_length_equal_to():
+    data = {"A": [0, 1, 2]}
+    path = DataPath("A")
+    rule = Rule(path=path, condition=Value.length.eq(3))
+    assert rule.test(data).is_valid
+
+
+def test_rule_test_value_dtype_equal_to_dict():
+    data = {"A": {"b": 1, "c": 2}}
+    path = DataPath("A")
+    rule = Rule(path=path, condition=Value.dtype.eq(dict))
+    assert rule.test(data).is_valid
+
+
+def test_rule_test_dict_value_keys_equal_to():
+    data = {"A": {"b": 1, "c": 2}}
+    path = DataPath("A")
+    rule = Rule(path=path, condition=Value.keys_equal_to("b", "c"))
+    assert rule.test(data).is_valid
+
+
+def test_rule_test_dict_value_items_contain():
+    data = {"A": {"b": 1, "c": 2}}
+    path = DataPath("A")
+    rule = Rule(path=path, condition=Value.items_contain(b=1))
+    assert rule.test(data).is_valid
+
+
+def test_rule_test_dict_value_items_contain_false():
+    data = {"A": {"b": 1, "c": 2}}
+    path = DataPath("A")
+    rule = Rule(path=path, condition=Value.items_contain(a=1))
+    assert not rule.test(data).is_valid
+
+
+def test_rule_test_keys_is_instance_subpath():
+    data = {"A": {"b": 0, "c": 1}, "B": {1: 0}}
+    path = DataPath("A")
+    rule = Rule(path=path, condition=Value.keys_is_instance(str))
+    assert rule.test(data).is_valid
+
+
+def test_rule_test_keys_is_instance_subpath_false():
+    data = {"A": {"b": 0, "c": 1}, "B": {1: 0}}
+    path = DataPath("A")
+    rule = Rule(path=path, condition=Value.keys_is_instance(int))
+    assert not rule.test(data).is_valid
+
+
+def test_rule_test_keys_is_instance_subpath_non_concrete_subpath():
+    data = {"A": {"b": 0, "c": 1}, "B": {"b": 0}, "C": {1: 0}}
+    path = DataPath(MapValue(key=Key.in_(["A", "B"])))
+    rule = Rule(path=path, condition=Value.keys_is_instance(str))
+    assert rule.test(data).is_valid
+
+
+def test_rule_test_keys_is_instance_subpath_non_concrete_subpath_false():
+    data = {"A": {"b": 0, "c": 1}, "B": {"b": 0}, "C": {1: 0}}
+    path = DataPath(MapValue(key=Key.in_(["A", "C"])))
+    rule = Rule(path=path, condition=Value.keys_is_instance(str))
+    assert not rule.test(data).is_valid
 
 
 def test_expected_validity_Rule_test_non_existent_non_concrete_path():

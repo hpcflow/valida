@@ -2,6 +2,7 @@ import pathlib
 import pytest
 
 from valida.conditions import (
+    Condition,
     KeyDataType,
     KeyLength,
     ValueDataType,
@@ -21,13 +22,11 @@ from valida.errors import InvalidCallable, MalformedConditionLikeSpec
 
 
 def test_mixed_key_index_binary_condition_raises_type_error():
-
     with pytest.raises(TypeError):
         Key.equal_to(1) | Index.equal_to(1)
 
 
 def test_mixed_key_index_second_order_binary_condition_raises_type_error():
-
     with pytest.raises(TypeError):
         vc1 = Value.equal_to(1)
         kc1 = Key.equal_to(1)
@@ -60,7 +59,6 @@ def test_null_condition_filter_includes_all_map_items():
 
 
 def test_condition_callable_aliases():
-
     assert Value.eq(1) == Value.equal_to(1)
     assert Value.lt(1) == Value.less_than(1)
     assert Value.gt(1) == Value.greater_than(1)
@@ -69,7 +67,6 @@ def test_condition_callable_aliases():
 
 
 def test_removal_of_null_condition_from_binary_ops():
-
     c1 = Value.gt(5) & NullCondition()
     assert not any(i.is_null for i in c1.flatten()[0])
 
@@ -78,7 +75,6 @@ def test_removal_of_null_condition_from_binary_ops():
 
 
 def test_equality():
-
     c1 = Value.truthy()
     c2 = Value.truthy()
     assert c1 == c2
@@ -105,7 +101,6 @@ def test_equality():
 
 
 def test_evalable_repr_for_simple_conditions():
-
     c1 = Value.equal_to(1)
     c2 = Value.lte(2)
     c3 = Value.not_equal_to(1)
@@ -118,7 +113,6 @@ def test_evalable_repr_for_simple_conditions():
 
 
 def test_evalable_repr_for_simple_list_value():
-
     ind_conds = (None, 0, Index.equal_to(0))
     val_conds = (None, 1, Value.equal_to(1))
     labels = (None, "my_list_value")
@@ -131,7 +125,6 @@ def test_evalable_repr_for_simple_list_value():
 
 
 def test_evalable_repr_for_simple_map_value():
-
     key_conds = (None, 0, Key.equal_to(0))
     val_conds = (None, 1, Value.equal_to(1))
     labels = (None, "my_list_value")
@@ -144,7 +137,6 @@ def test_evalable_repr_for_simple_map_value():
 
 
 def test_binary_op_equality():
-
     bo1 = Value.eq(1) & Value.lte(2)
     bo2 = Value.eq(1) & Value.lte(2)
     assert bo1 == bo2
@@ -163,7 +155,6 @@ def test_binary_op_equality():
 
 
 def test_commutativity_of_binary_ops():
-
     v1a = Value.lt(2)
     v1b = Value.gt(2)
     v1c = Value.eq(3)
@@ -176,19 +167,16 @@ def test_commutativity_of_binary_ops():
 
 
 def test_truthy_falsy_for_integers():
-
     data = [0, 1, 2]
     assert Value.truthy().filter(data).data == [1, 2]
     assert Value.falsy().filter(data).data == [0]
 
 
 def test_value_null_condition_list_value():
-
     assert ListValue() == ListValue(value=NullCondition())
 
 
 def test_value_null_condition_map_value():
-
     assert MapValue() == MapValue(value=NullCondition())
 
 
@@ -201,7 +189,6 @@ def test_raise_on_defined_callable_not_returning_bool():
 
 
 def test_raise_on_lambda_callable_not_returning_bool():
-
     my_callable = lambda x: None
     with pytest.raises(InvalidCallable):
         Value(my_callable).test(1)
@@ -470,17 +457,14 @@ def test_equivalence_ConditionLike_from_spec_single_arg_callable_DataPath_len_le
 
 
 def test_equivalence_ConditionLike_from_spec_multi_arg_callable_DataPath():
-    assert (
-        ConditionLike.from_spec(
-            {
-                "value.in_range": {
-                    "lower": {"path": ("A", "lower")},
-                    "upper": {"path": ("A", "upper")},
-                }
+    assert ConditionLike.from_spec(
+        {
+            "value.in_range": {
+                "lower": {"path": ("A", "lower")},
+                "upper": {"path": ("A", "upper")},
             }
-        )
-        == Value.in_range(lower=DataPath("A", "lower"), upper=DataPath("A", "upper"))
-    )
+        }
+    ) == Value.in_range(lower=DataPath("A", "lower"), upper=DataPath("A", "upper"))
 
 
 def test_ConditionLike_from_spec_DataPath_escape():
@@ -589,3 +573,102 @@ def test_to_json_like_round_trip_index_equal_to():
     c1 = Index.equal_to(2)
     c1_js = c1.to_json_like()
     assert ConditionLike.from_spec(c1_js) == c1
+
+
+@pytest.mark.parametrize("binary_op", ("and", "or", "xor"))
+def test_to_json_like_round_trip_binary(binary_op):
+    cnd_js = {binary_op: [{"key.equal_to": 0}, {"value.dtype.equal_to": "dict"}]}
+    cnd = Condition.from_json_like(cnd_js)
+    assert cnd.to_json_like() == cnd_js
+
+
+def test_condition_filter_result_key_equal_to():
+    data = {"a": 1, "b": 2}
+    cnd = Key.eq("a")
+    assert cnd.filter(data).result == [True, False]
+
+
+def test_condition_test_key_equal_to():
+    data = {"a": 1}
+    cnd = Key.eq("a")
+    assert cnd.test(data) == True
+
+
+def test_condition_test_key_equal_to_false():
+    data = {"a": 1}
+    cnd = Key.eq("b")
+    assert cnd.test(data) == False
+
+
+def test_condition_filter_result_key_equal_to_sub_data_concrete_path():
+    data = {"A": {"a": 1, "b": 2}, "B": 1}
+    path = DataPath("A")
+    cnd = Key.eq("a")
+    sub_data = path.get_data(data)
+    assert cnd.filter(sub_data).result == [True, False]
+
+
+def test_condition_filter_raises_key_equal_to_sub_data_non_concrete_path():
+    # for non-concrete paths, it doesn't make sense to filter on a key, because there
+    # might be multiple dicts that need filtering; how would that be represented in the
+    # result (which in the concrete case, corresponds to items in the single dict)?
+    data = {"A": {"a": 1, "b": 2}, "B": 1}
+    path = DataPath(MapValue("A"))
+    cnd = Key.eq("a")
+    sub_data = path.get_data(data)
+    with pytest.raises(TypeError):
+        cnd.filter(sub_data)
+
+
+def test_condition_to_json_like_simple():
+    assert Value.equal_to(2).to_json_like() == {"value.equal_to": 2}
+
+
+def test_condition_to_json_like_binary_op():
+    assert (Value.equal_to(2) | Value.equal_to(3)).to_json_like() == {
+        "or": [{"value.equal_to": 2}, {"value.equal_to": 3}]
+    }
+
+
+def test_condition_to_json_like_datum_types():
+    assert (Key.equal_to("a").to_json_like(), Index.equal_to(0).to_json_like()) == (
+        {"key.equal_to": "a"},
+        {"index.equal_to": 0},
+    )
+
+
+def test_condition_to_json_like_pre_processors():
+    assert (
+        Value.dtype.equal_to(str).to_json_like(),
+        Value.length.equal_to(3).to_json_like(),
+    ) == ({"value.dtype.equal_to": "str"}, {"value.length.equal_to": 3})
+
+
+def test_condition_json_like_round_trip_no_args():
+    cnd_js = {"value.truthy": None}
+    cnd = ConditionLike.from_json_like(cnd_js)
+    assert cnd.to_json_like() == cnd_js
+
+
+def test_condition_json_like_round_trip_single_pos_or_kw():
+    cnd_js = {"value.equal_to": 3}
+    cnd = ConditionLike.from_json_like(cnd_js)
+    assert cnd.to_json_like() == cnd_js
+
+
+def test_condition_json_like_round_trip_multi_pos_or_kw():
+    cnd_js = {"value.equal_to_approx": {"value": 3, "tolerance": 1e-8}}
+    cnd = ConditionLike.from_json_like(cnd_js)
+    assert cnd.to_json_like() == cnd_js
+
+
+def test_condition_json_like_round_trip_one_var_pos():
+    cnd_js = {"value.is_instance": ["str", "int"]}
+    cnd = ConditionLike.from_json_like(cnd_js)
+    assert cnd.to_json_like() == cnd_js
+
+
+def test_condition_json_like_round_trip_zero_or_more_pos_or_kw_and_var_kw():
+    cnd_js = {"value.items_contain": {"a": 1, "b": 2}}
+    cnd = ConditionLike.from_json_like(cnd_js)
+    assert cnd.to_json_like() == cnd_js

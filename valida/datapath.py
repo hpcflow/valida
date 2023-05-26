@@ -1,5 +1,6 @@
 import copy
 import enum
+from typing import Tuple
 
 import valida.data
 import valida.conditions as cnds
@@ -18,7 +19,6 @@ def get_container_value_condition(
     condition_label="condition",
     datum_condition_label="value",
 ):
-
     if condition is not None:
         if not isinstance(condition, cnds.ConditionLike):
             raise TypeError(
@@ -41,14 +41,12 @@ def get_container_value_condition(
 
 
 class Container(enum.Enum):
-
     CONTAINER = -1
     LIST = 0
     MAP = 1
 
 
 class DataPathDatumType(enum.Enum):
-
     NONE = None
     DTYPE = 1
     LENGTH = 2
@@ -57,7 +55,6 @@ class DataPathDatumType(enum.Enum):
 
 
 class DataPathMultiType(enum.Enum):
-
     NONE = None
     FIRST = 1  # Use just the first returned match
     LAST = 2  # Use just the final returned match
@@ -71,7 +68,7 @@ class DataPath:
 
     A DataPath locates nodes within a nested data structure. It comprises an
     address of nested data types (mapping values or list items) that can be further
-    refined using one ore more conditions. Validation rules are applied (i.e. tested) at
+    refined using one or more conditions. Validation rules are applied (i.e. tested) at
     the nodes identified by a ContainerPath.
 
     """
@@ -80,7 +77,6 @@ class DataPath:
     MULTI_TYPE = DataPathMultiType.NONE
 
     def __init__(self, *parts, datum_type=None, multi_type=None, source_data=None):
-
         part_objs = []
         is_concrete = True
         for i in parts:
@@ -92,9 +88,9 @@ class DataPath:
                 elif isinstance(i, int):
                     i = MapOrListValue(key=i, index=i)  # could be either map or list
                 else:
-                    raise TypeError(
-                        f"Cannot construct a DataPath from part of type: {type(i)}"
-                    )
+                    msg = f"Cannot construct a DataPath from part of type: {type(i)!r}"
+                    raise TypeError(msg)
+
             part_objs.append(i)
 
         self.parts = tuple(part_objs)
@@ -141,7 +137,6 @@ class DataPath:
 
     @classmethod
     def from_spec(cls, spec):
-
         general_msg = (
             f'The specification key must start with "path" and optionally include, as '
             f'additional dot-delimited tokens, a `DATUM_TYPE` specifier (e.g. "path.map_keys", '
@@ -217,7 +212,7 @@ class DataPath:
         describes the required ContainerItem using string keys."""
 
         spec_resolved_parts = []
-        for i in parts:
+        for i in copy.deepcopy(parts):
             if isinstance(i, dict):
                 i = ContainerValue.from_spec(i)
             spec_resolved_parts.append(i)
@@ -232,12 +227,17 @@ class DataPath:
             except KeyError:
                 if isinstance(i, MapOrListValue):
                     part_spec = i.list_condition.callable.kwargs["value"]
+                elif i.CONTAINER_TYPE is Container.MAP:
+                    part_spec = {"type": "map_value"}
+                elif i.CONTAINER_TYPE is Container.LIST:
+                    part_spec = {"type": "list_value"}
+                else:
+                    raise RuntimeError(f"Cannot convert part to a part spec: {i!r}.")
             parts.append(part_spec)
         return parts
 
     @classmethod
     def from_str(cls, path_str, delimiter="/"):
-
         if path_str:
             path_str_parts = path_str.split(delimiter)
         else:
@@ -364,7 +364,6 @@ class DataPath:
         return data
 
     def _match_specified_multi_type(self, data, concrete_paths):
-
         if self.MULTI_TYPE.value:
             if self.MULTI_TYPE == DataPathMultiType.FIRST:
                 data = data[0]
@@ -413,11 +412,9 @@ class DataPath:
         concrete_paths = []
 
         for part_idx, part in enumerate(self.parts):
-
             new_data = []
             new_concrete_paths = []
             for datum_idx, datum in enumerate(data):
-
                 try:
                     filtered_data = part.filter(datum)
                 except TypeError:
@@ -451,6 +448,41 @@ class DataPath:
         out = self._match_specified_multi_type(out, concrete_paths)
 
         return out
+
+    def simplify(self) -> Tuple:
+        """Convert parts to simple primitives where possible, and leave other parts alone.
+
+        The output from this method can be passed back to the `DataPath` constructor
+        `parts` argument to generate the same `DataPath`.
+
+        """
+        out = []
+        for part in self.parts:
+            # note: we don't "simplify" a `ListValue` like `ListValue(0)` (meaning index 0
+            # of a list), because if passing the result back into a new  `DataPath`, a
+            # lone integer will be converted to a `MapOrListValue`, not a `ListValue`.
+            is_single_cond = not part.condition.flatten()[1]
+            if (
+                isinstance(part, MapValue)
+                and is_single_cond
+                and isinstance(part.condition, cnds.Key)
+                and part.condition.callable.name == "equal_to"
+            ):
+                out.append(part.condition.callable.kwargs["value"])
+            elif (
+                isinstance(part, MapOrListValue)
+                and part.condition == cnds.NullCondition()
+                and isinstance(part.list_condition, cnds.Index)
+                and not part.list_condition.flatten()[1]
+                and part.list_condition.callable.name == "equal_to"
+                and isinstance(part.map_condition, cnds.Key)
+                and not part.map_condition.flatten()[1]
+                and part.map_condition.callable.name == "equal_to"
+            ):
+                out.append(part.list_condition.callable.kwargs["value"])
+            else:
+                out.append(part)
+        return tuple(out)
 
 
 class ContainerValue:
@@ -531,7 +563,6 @@ class ContainerValue:
             condition = condition & cnds.ConditionLike.from_spec({spec_k: spec_v})
 
         if cls == MapValue:
-
             # shorthand specs:
             key_short_keys = [i for i in spec if i.startswith("key.")]
             key_short_cond_specs = {i: spec.pop(i) for i in key_short_keys}
@@ -549,7 +580,6 @@ class ContainerValue:
                 condition = condition & new_cond
 
         elif cls == ListValue:
-
             # shorthand specs:
             index_short_keys = [i for i in spec if i.startswith("index.")]
             index_short_cond_specs = {i: spec.pop(i) for i in index_short_keys}
@@ -567,7 +597,6 @@ class ContainerValue:
                 condition = condition & new_cond
 
         elif cls == MapOrListValue:
-
             # shorthand specs:
             index_short_keys = [i for i in spec if i.startswith("index.")]
             index_short_cond_specs = {i: spec.pop(i) for i in index_short_keys}
@@ -629,11 +658,9 @@ class ContainerValue:
 
 
 class MapValue(ContainerValue):
-
     CONTAINER_TYPE = Container.MAP
 
     def __init__(self, key=None, value=None, condition=None, label=None):
-
         condition = get_container_value_condition(
             condition,
             key,
@@ -661,11 +688,9 @@ class MapValue(ContainerValue):
 
 
 class ListValue(ContainerValue):
-
     CONTAINER_TYPE = Container.LIST
 
     def __init__(self, index=None, value=None, condition=None, label=None):
-
         condition = get_container_value_condition(
             condition,
             index,
@@ -705,7 +730,6 @@ class MapOrListValue(ContainerValue):
         condition=None,
         label=None,
     ):
-
         list_condition = get_container_value_condition(
             list_condition,
             index,
@@ -736,7 +760,7 @@ class MapOrListValue(ContainerValue):
 
     def __repr__(self):
         return (
-            f"{self.__class__.__name__}(condition={self.condition!r}"
+            f"{self.__class__.__name__}(condition={self.condition!r},"
             f" list_condition={self.list_condition!r}, map_condition={self.map_condition!r}"
             f'{f", label={self.label!r}" if self.label else ""}'
             f")"
@@ -754,10 +778,8 @@ class MapOrListValue(ContainerValue):
 
 
 def resolve_implicit_types(path):
-
     types = []
     for i in path:
-
         # Note: we don't support "complex mappings" from YAML where keys are themselves
         # mappings or lists
         try:
@@ -771,7 +793,6 @@ def resolve_implicit_types(path):
 
 
 def validate_rule_paths(rules):
-
     seen_paths = []
     predicted_types = {}
     for r_idx, r in enumerate(rules):
@@ -801,7 +822,6 @@ def validate_rule_paths(rules):
 
     # Identify type, where possible, for each node
     for path, types_info in predicted_types.items():
-
         uniq_types = set(types_info["types"])
 
         if len(uniq_types) == 1:
@@ -821,7 +841,6 @@ def validate_rule_paths(rules):
             raise IncompatibleRules(msg)
 
         elif Container.CONTAINER in uniq_types:
-
             if Container.LIST in uniq_types:
                 actual_type = Container.LIST
 

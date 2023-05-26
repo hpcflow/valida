@@ -1,6 +1,7 @@
 from textwrap import dedent
 
 from valida.casting import cast_string_to_bool
+from valida.datapath import DataPath
 from valida.schema import Schema
 from valida.rules import Rule
 from valida.conditions import Value, NullCondition
@@ -80,3 +81,15 @@ def test_cast_str_to_bool_and_str_to_int():
     cast_data = {"A": True, "B": 3}
     validated_data = schema.validate(data)
     assert validated_data.is_valid and validated_data.cast_data == cast_data
+
+
+def test_rules_order_unsorted():
+    r1 = Rule(path=DataPath("A", "B"), condition=NullCondition())
+    r2 = Rule(path=DataPath("C"), condition=NullCondition())
+    assert Schema(rules=[r1, r2]).rules == [r2, r1]
+
+
+def test_rules_order_sorted():
+    r1 = Rule(path=DataPath("C"), condition=NullCondition())
+    r2 = Rule(path=DataPath("A", "B"), condition=NullCondition())
+    assert Schema(rules=[r1, r2]).rules == [r1, r2]
