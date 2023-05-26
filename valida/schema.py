@@ -149,19 +149,41 @@ class Schema:
             data = Data(data)
         return ValidatedData(self, data)
 
-    def to_tree(self, nested=False) -> List[Dict[str, Any]]:
+    def to_tree(
+        self, nested: bool = False, from_path: List = None
+    ) -> List[Dict[str, Any]]:
         """Generate a more compact summary of the schema rules that can be later formatted
-        in HTML, for example."""
+        in HTML, for example.
+
+        Parameters
+        ----------
+        from_path
+            Set the root node to a sub-node (inclusively).
+
+        """
 
         IMP_TYPE_LOOKUP = {
             Container.MAP: "dict",
             Container.LIST: "list",
         }
 
+        if from_path is None:
+            from_path = []
+
+        from_path_str = tuple(str(i) for i in from_path)
+        from_path_simple = DataPath(*from_path).simplify()
+
         items = {}
         for rule in self.rules:
             path_simple = rule.path.simplify()
             path_str = tuple(str(i) for i in rule.path.parts)  # use as a dict key
+
+            if path_str[: len(from_path_str)] != from_path_str:
+                continue
+            else:
+                path_simple = path_simple[len(from_path_str) :]
+                path_str = path_str[len(from_path_str) :]
+
             if path_str not in items:
                 items[path_str] = {}
 
@@ -169,13 +191,13 @@ class Schema:
             items[path_str]["path"] = path_simple
 
             # add parent types that are implicitly defined:
-            imp_types = rule.path.resolve_implicit_types()
+            imp_types = rule.path.resolve_implicit_types()[len(from_path_str) :]
             if imp_types:
                 for idx, imp_type in enumerate(imp_types):
                     if idx == 0:
                         parent_path = []
                     else:
-                        parent_path = rule.path.parts[:idx]
+                        parent_path = rule.path.parts[len(from_path_str) : idx]
                     parent_path_str = tuple(str(i) for i in parent_path)
 
                     if parent_path_str not in items:
@@ -187,7 +209,7 @@ class Schema:
             for key_cnd in key_conditions:
                 for key in key_cnd.callable.args:
                     path_simple_i = tuple(list(path_simple) + [key])
-                    path_i = rule.path / DataPath(key)
+                    path_i = rule.path[len(from_path_str) :] / DataPath(key)
                     path_i_str = tuple(str(i) for i in path_i)
                     if path_i_str not in items:
                         items[path_i_str] = {"path": path_simple_i}
@@ -218,6 +240,11 @@ class Schema:
             v["path_str"] = k
             items_lst.append(v)
             parent_refs[k] = len(items_lst) - 1
+
+        # add the final component of `from_path` back on to all paths:
+        for item in items_lst:
+            item["path"] = tuple([from_path_simple[-1]] + list(item["path"]))
+            item["path_str"] = tuple([from_path_str[-1]] + list(item["path_str"]))
 
         if nested:
             # start popping from the end:
