@@ -1,4 +1,37 @@
 
+<a name="v0.6.0"></a>
+## [v0.6.0](https://github.com/hpcflow/valida/compare/v0.5.2...v0.6.0) - 2023.05.26
+
+### ♻ Code Refactoring
+
+* rename write_tree_template -> write_tree_html
+* use more specific html class names in write_tree_template
+* whitespace
+* whitespace
+
+### ✨ Features
+
+* add from/to_json_like to Schema
+* add arg anchor_root to write_tree_html
+* add rule docs to Schema.to_tree and write_tree_html outputs
+* add doc attribute to Rule for documenting it.
+* add arg from_path to Schema.to_tree
+* add Schema.to_tree and .write_tree_template
+* add Schema.add_schema()
+* add DataPath.simplify
+* add callable keys_is_instance
+* sort rules by path length on Schema init
+
+### 🐛 Bug Fixes
+
+* missing import
+* Condition.to_json_like in the general case
+* Schema to_tree
+* add missing import in test
+* add to_json_like method to ConditionBinaryOp
+* DataPath.to_part_specs for ContainerValue objects
+
+
 <a name="v0.5.2"></a>
 ## [v0.5.2](https://github.com/hpcflow/valida/compare/v0.5.1...v0.5.2) - 2023.04.25
 
