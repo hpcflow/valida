@@ -618,3 +618,57 @@ def test_condition_filter_raises_key_equal_to_sub_data_non_concrete_path():
     sub_data = path.get_data(data)
     with pytest.raises(TypeError):
         cnd.filter(sub_data)
+
+
+def test_condition_to_json_like_simple():
+    assert Value.equal_to(2).to_json_like() == {"value.equal_to": 2}
+
+
+def test_condition_to_json_like_binary_op():
+    assert (Value.equal_to(2) | Value.equal_to(3)).to_json_like() == {
+        "or": [{"value.equal_to": 2}, {"value.equal_to": 3}]
+    }
+
+
+def test_condition_to_json_like_datum_types():
+    assert (Key.equal_to("a").to_json_like(), Index.equal_to(0).to_json_like()) == (
+        {"key.equal_to": "a"},
+        {"index.equal_to": 0},
+    )
+
+
+def test_condition_to_json_like_pre_processors():
+    assert (
+        Value.dtype.equal_to(str).to_json_like(),
+        Value.length.equal_to(3).to_json_like(),
+    ) == ({"value.dtype.equal_to": "str"}, {"value.length.equal_to": 3})
+
+
+def test_condition_json_like_round_trip_no_args():
+    cnd_js = {"value.truthy": None}
+    cnd = ConditionLike.from_json_like(cnd_js)
+    assert cnd.to_json_like() == cnd_js
+
+
+def test_condition_json_like_round_trip_single_pos_or_kw():
+    cnd_js = {"value.equal_to": 3}
+    cnd = ConditionLike.from_json_like(cnd_js)
+    assert cnd.to_json_like() == cnd_js
+
+
+def test_condition_json_like_round_trip_multi_pos_or_kw():
+    cnd_js = {"value.equal_to_approx": {"value": 3, "tolerance": 1e-8}}
+    cnd = ConditionLike.from_json_like(cnd_js)
+    assert cnd.to_json_like() == cnd_js
+
+
+def test_condition_json_like_round_trip_one_var_pos():
+    cnd_js = {"value.is_instance": ["str", "int"]}
+    cnd = ConditionLike.from_json_like(cnd_js)
+    assert cnd.to_json_like() == cnd_js
+
+
+def test_condition_json_like_round_trip_zero_or_more_pos_or_kw_and_var_kw():
+    cnd_js = {"value.items_contain": {"a": 1, "b": 2}}
+    cnd = ConditionLike.from_json_like(cnd_js)
+    assert cnd.to_json_like() == cnd_js
