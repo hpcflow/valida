@@ -494,7 +494,7 @@ class ConditionLike:
                     condition = cond_method(*spec_val)
                 else:
                     raise MalformedConditionLikeSpec(
-                        f"Condition callable {cond_method} accepts multuple positional-or-"
+                        f"Condition callable {cond_method} accepts multiple positional-or-"
                         f"keyword arguments, and so must be parametrised with a dict or "
                         f"list/tuple of values, but the following was supplied: {spec_val!r}"
                     )
@@ -667,15 +667,70 @@ class Condition(ConditionLike):
         # need to return a single-item dict that can be passed to `from_spec` for
         # round-tripping.
 
-        # TODO: doesn't work for BinaryOps?
+        # Get the spec key:
         key = f"{self.js_like_label}.{self.callable.func.__name__}"
 
-        if len(self.callable.kwargs) == 1:
-            _, val = next(iter(self.callable.kwargs.items()))
-            if "dtype" in key:
-                val = INV_DTYPE_LOOKUP[val]
+        cast_types = "dtype" in key or "is_instance" in key
 
-        out = {key: val}
+        # Get the spec value (the value of the returned dict):
+
+        func_args = get_func_args_by_kind(self.callable.func, exclude_first=True)
+        if not any(
+            func_args[i]
+            for i in ("POSITIONAL_OR_KEYWORD", "VAR_POSITIONAL", "VAR_KEYWORD")
+        ):
+            # no arguments, set spec val to None
+            spec_val = None
+
+        elif len(func_args["POSITIONAL_OR_KEYWORD"]) == 1 and not any(
+            func_args[i] for i in ("VAR_POSITIONAL", "VAR_KEYWORD")
+        ):
+            # single pos-or-kw and nothing else, spec val is just that single value:
+            spec_val = copy.deepcopy(next(iter(self.callable.kwargs.values())))
+            if cast_types:
+                spec_val = INV_DTYPE_LOOKUP[spec_val]
+
+        elif len(func_args["POSITIONAL_OR_KEYWORD"]) > 1 and not any(
+            func_args[i] for i in ("VAR_POSITIONAL", "VAR_KEYWORD")
+        ):
+            # more than one pos-or-kw and nothing else, spec val is a dict of kwargs:
+            spec_val = copy.deepcopy(self.callable.kwargs)
+            if cast_types:
+                for k, v in spec_val.items():
+                    try:
+                        spec_val[k] = INV_DTYPE_LOOKUP[v]
+                    except KeyError:
+                        continue
+
+        elif len(func_args["VAR_POSITIONAL"]) == 1 and not any(
+            func_args[i] for i in ("POSITIONAL_OR_KEYWORD", "VAR_KEYWORD")
+        ):
+            # one var-positional and nothing else, spec val is a list of args:
+            spec_val = copy.deepcopy(list(self.callable.args))
+            if cast_types:
+                for idx, val in enumerate(spec_val):
+                    try:
+                        spec_val[idx] = INV_DTYPE_LOOKUP[val]
+                    except KeyError:
+                        continue
+
+        elif len(func_args["VAR_KEYWORD"]) == 1 and not func_args["VAR_POSITIONAL"]:
+            # zero or more pos-or-kw args and a var-kw arg, spec val is a dict of kwargs:
+            spec_val = copy.deepcopy(self.callable.kwargs)
+            if cast_types:
+                for k, v in spec_val.items():
+                    try:
+                        spec_val[k] = INV_DTYPE_LOOKUP[v]
+                    except KeyError:
+                        continue
+
+        else:
+            raise NotImplementedError(
+                f"Condition callable arguments {self.callable.ags!r} and keyword-arguments "
+                f"{self.callable.kwargs!r} cannot be written in JSON form."
+            )
+
+        out = {key: spec_val}
         if "shared_data" in kwargs:
             return out, kwargs["shared_data"]
         else:
