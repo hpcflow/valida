@@ -175,6 +175,22 @@ class Schema:
 
         self.rules = sorted(self.rules, key=lambda i: len(i.path))
 
+    def to_json_like(self, *args, **kwargs):
+        """Encode the rules into a JSON-compatible format.
+
+        This does not include the `rule_tests` attribute.
+        """
+        out = [i.to_json_like() for i in self.rules]
+        if "shared_data" in kwargs:
+            return out, kwargs["shared_data"]
+        else:
+            return out
+
+    @classmethod
+    def from_json_like(cls, json_like, *args, **kwargs):
+        """Construct from a JSON-like structure."""
+        return cls(rules=[Rule.from_json_like(i) for i in json_like])
+
     @staticmethod
     def init_rules(rules_dat):
         rules = []
