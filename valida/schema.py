@@ -47,47 +47,89 @@ def format_map_key_value_data_type_conditions(
 
 
 def write_tree_template(tree, _path=None):
-    empty_map_value_str = '<span class="null-condition-path-elem">map-value</span>'
-    empty_lst_value_str = '<span class="null-condition-path-elem">list-value</span>'
-    out = f'<div class="tree node" data-node-path="{html.escape(str(_path) or "")}">'
+    empty_map_str = "map-value"
+    empty_lst_str = "list-value"
+    empty_map_span = (
+        f'<span class="valida-tree null-condition-path-elem">[{empty_map_str}]</span>'
+    )
+    empty_lst_span = (
+        f'<span class="valida-tree null-condition-path-elem">[{empty_lst_str}]</span>'
+    )
+    out = f'<div class="valida-tree node" data-node-path="{html.escape(str(_path) or "")}">'
+
     for child in tree:
-        out += f'<div class="tree node-child">'
+        out += f'<div class="valida-tree node-child">'
 
         path_fmt_lst = []
         for i in child["path"]:
             if i == MapValue():
-                i = empty_map_value_str
+                i = empty_map_span
             elif i == ListValue():
-                i = empty_lst_value_str
+                i = empty_lst_span
             else:
                 i = html.escape(str(i))
             path_fmt_lst.append(str(i))
-
         path_fmt = " → ".join(path_fmt_lst)
-        if path_fmt:
-            out += f'<div class="tree path-name">Path: {path_fmt}</div>'
 
+        path_anchor_lst = []
+        for i in child["path"]:
+            if i == MapValue():
+                i = empty_map_str
+            elif i == ListValue():
+                i = empty_lst_str
+            else:
+                i = html.escape(str(i))
+            path_anchor_lst.append(str(i))
+
+        path_anchor = "vld-" + "-".join(path_anchor_lst)
+        path_title = " → ".join(path_anchor_lst)
+        head_anchor = f"#{path_anchor}"
+
+        # if _path is not None:
+        out += f'<section class="valida-tree-section" id={path_anchor}>'
+
+        if path_fmt:
+            head_lev = len(child["path"]) + 1
+            path_fmt_final = f"{path_fmt_lst[-1]}"  # not showing whole path?
+            out += f'<div class="valida-tree path-name"><h{head_lev} title="{path_title}">{path_fmt_final}<a class="headerlink" href="{head_anchor}">#</a></h{head_lev}></div>'
+
+        type_line_lst = []
         chd_type = child.get("type_fmt")
         chd_key_type = child.get("key_type_fmt")
         chd_cnd = child.get("condition")
         if chd_type:
             chd_type = str(chd_type)
-            out += f'<div class="tree type-name">Type: {html.escape(chd_type)}</div>'
+            type_line_lst.append(
+                f'<span class="valida-tree type-name">type: {html.escape(chd_type)}</span>'
+            )
             if chd_key_type:
                 chd_key_type = str(chd_key_type)
-                out += f'<div class="tree key-type-name">Key type: {html.escape(chd_key_type)}</div>'
-        elif chd_cnd:
+                type_line_lst[-1] += (
+                    f' <span class="valida-tree key-type-name">(key: '
+                    f"{html.escape(chd_key_type)})</span>"
+                )
+
+        chd_req = child.get("required")
+        if _path is None:
+            chd_req = True
+
+        type_line_lst.append(
+            f'<span class="valida-tree required-name">{"required" if chd_req else "optional"}</span>'
+        )
+
+        out += ", ".join(type_line_lst)
+
+        if not chd_type and chd_cnd:
             chd_cnd = str(chd_cnd)
             out += (
                 f'<div class="tree condition">Condition: {html.escape(chd_cnd)}</div>'
             )
 
-        chd_req = child.get("required")
-        if _path is None:
-            chd_req = True
-        out += f'<div class="tree required-name">{"required" if chd_req else "optional"}</div>'
         if "children" in child:
             out += write_tree_template(child["children"], _path=child["path"])
+
+        # if _path is not None:
+        out += "</section>"
 
         out += f"</div>"
 
