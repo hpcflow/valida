@@ -47,7 +47,7 @@ def format_map_key_value_data_type_conditions(
     return out_str
 
 
-def write_tree_html(tree, _path=None):
+def write_tree_html(tree, _path=None, anchor_root: str = None):
     empty_map_str = "map-value"
     empty_lst_str = "list-value"
     empty_map_span = (
@@ -72,7 +72,7 @@ def write_tree_html(tree, _path=None):
             path_fmt_lst.append(str(i))
         path_fmt = " → ".join(path_fmt_lst)
 
-        path_anchor_lst = []
+        path_anchor_lst = [] if not anchor_root else [anchor_root]
         for i in child["path"]:
             if i == MapValue():
                 i = empty_map_str
@@ -138,7 +138,11 @@ def write_tree_html(tree, _path=None):
         out += "</div>"  # node-info
 
         if "children" in child:
-            out += write_tree_html(child["children"], _path=child["path"])
+            out += write_tree_html(
+                child["children"],
+                _path=child["path"],
+                anchor_root=anchor_root,
+            )
 
         out += "</section>"
         out += "</div>"
