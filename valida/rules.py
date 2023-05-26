@@ -1,4 +1,5 @@
 import copy
+from typing import List, Optional
 from valida.conditions import ConditionLike
 from valida.casting import CAST_DTYPE_LOOKUP, CAST_LOOKUP
 from valida.data import Data, set_datum
@@ -7,13 +8,14 @@ from valida.errors import MalformedRuleSpec
 
 
 class Rule:
-    def __init__(self, path, condition, cast=None):
+    def __init__(self, path, condition, cast=None, doc: Optional[List[str]] = None):
         if not isinstance(path, DataPath):
             path = DataPath(*path)
 
         self.path = path
         self.condition = condition
         self.cast = cast
+        self.doc = doc
 
     def __repr__(self):
         return (
@@ -36,6 +38,16 @@ class Rule:
     def from_spec(cls, spec):
         path = DataPath.from_part_specs(*spec["path"])
         cond = ConditionLike.from_spec(spec["condition"])
+        doc = spec.get("doc")
+
+        if doc:
+            if not isinstance(doc, list):
+                doc = [doc]
+
+            # strip final new lines:
+            for idx, i in enumerate(doc):
+                doc[idx] = i.strip()
+
         cast = spec.get("cast")
         for cast_from in list((cast or {}).keys()):
             cast_to = cast.pop(cast_from)
@@ -56,7 +68,7 @@ class Rule:
                     f"Unsupported cast from type {cast_from!r} to type {cast_to!r}."
                 )
 
-        return cls(path=path, condition=cond, cast=cast)
+        return cls(path=path, condition=cond, cast=cast, doc=doc)
 
     @classmethod
     def from_json_like(cls, json_like, *args, **kwargs):
