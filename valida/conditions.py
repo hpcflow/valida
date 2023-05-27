@@ -467,6 +467,8 @@ class ConditionLike:
                     except MalformedDataPathSpec:
                         pass
 
+            # invoke the condition method to construct the Condition object:
+
             if not any(
                 func_args[i]
                 for i in ("POSITIONAL_OR_KEYWORD", "VAR_POSITIONAL", "VAR_KEYWORD")
@@ -565,6 +567,8 @@ class ConditionLike:
                 if isinstance(i, KeyDataType):
                     out["key_data_type"].append(i)
                 elif isinstance(i, ValueDataType):
+                    out["value_data_type"].append(i)
+                elif isinstance(i, ValueLength):
                     out["value_data_type"].append(i)
                 elif isinstance(i, Value) and i.callable.name == "is_instance":
                     out["value_data_type"].append(i)

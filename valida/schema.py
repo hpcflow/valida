@@ -18,13 +18,24 @@ def format_map_key_value_data_type_conditions(
     out = []
     for i in cnds:
         out_i = ""
-        if i.callable.name == "equal_to":
+
+        pre_proc = i.PRE_PROCESSOR
+
+        if pre_proc and pre_proc.__name__ == "len":
+            if i.callable.name == "equal_to":
+                val = i.callable.kwargs["value"]
+            elif i.callable.name == "in_":
+                val = " or ".join(str(j) for j in i.callable.kwargs["value"])
+            out_i += f"length: {val}"
+
+        elif i.callable.name == "equal_to":
             val = i.callable.kwargs["value"]
             try:
                 val = INV_DTYPE_LOOKUP[val]
             except KeyError:
                 pass
             out_i += f"{val}"
+
         elif i.callable.name in ("is_instance", "keys_is_instance"):
             arg_concat_i = []
             for arg_j in i.callable.args:
@@ -35,10 +46,12 @@ def format_map_key_value_data_type_conditions(
                 arg_concat_i.append(arg_j)
             arg_concat_i_str = " | ".join(str(i) for i in arg_concat_i)
             out_i += arg_concat_i_str
+
         elif i.callable.name == "in_":
             arg_concat_i = (repr(j) for j in i.callable.kwargs["value"])
             arg_concat_i_str = "(" + " | ".join(arg_concat_i) + ")"
             out_i += arg_concat_i_str
+
         out.append(out_i)
     if len(out) > 1:
         out_str = ", ".join(out)
@@ -47,62 +60,86 @@ def format_map_key_value_data_type_conditions(
     return out_str
 
 
-def write_tree_html(tree, _path=None, anchor_root: str = None):
-    empty_map_str = "map-value"
-    empty_lst_str = "list-value"
+def write_tree_html(
+    nested_tree,
+    _path=None,
+    anchor_root: str = None,
+    heading_start_level=1,
+    show_root_heading=True,
+    _depth=0,
+):
+    empty_map_str = "[map-value]"
+    empty_lst_str = "[list-value]"
     empty_map_span = (
-        f'<span class="valida-tree null-condition-path-elem">[{empty_map_str}]</span>'
+        f'<span class="valida-tree null-condition-path-elem">{empty_map_str}</span>'
     )
     empty_lst_span = (
-        f'<span class="valida-tree null-condition-path-elem">[{empty_lst_str}]</span>'
+        f'<span class="valida-tree null-condition-path-elem">{empty_lst_str}</span>'
     )
-    out = f'<div class="valida-tree node" data-node-path="{html.escape(str(_path) or "")}">'
+    top_node = " top-level-node" if _path is None else ""
+    node_html = (
+        f'<div class="valida-tree node{top_node}" data-node-path='
+        f'"{html.escape(str(_path or ""))}">'
+    )
 
-    for child in tree:
-        out += f'<div class="valida-tree node-child">'
+    children_html = ""
+    for child in nested_tree:
+        child_html = ""
 
-        path_fmt_lst = []
+        if child.get("type_info_in_parent") and not child.get("children"):
+            # this will need refining.
+            # TODO: also check that the only conditions are type
+            continue
+
+        child_html += f'<div class="valida-tree node-child">'
+
+        path_lst = [] if not anchor_root else [anchor_root]
+        title_lst = [] if not anchor_root else [anchor_root]
+        sec_ID_lst = [] if not anchor_root else [anchor_root]
         for i in child["path"]:
             if i == MapValue():
-                i = empty_map_span
+                i_p = empty_map_span
+                i_s = empty_map_str.replace("[", "%5B").replace("]", "%5D")
+                i_t = empty_map_str
             elif i == ListValue():
-                i = empty_lst_span
+                i_p = empty_lst_span
+                i_s = empty_lst_str.replace("[", "%5B").replace("]", "%5D")
+                i_t = empty_lst_str
             else:
-                i = html.escape(str(i))
-            path_fmt_lst.append(str(i))
-        path_fmt = " → ".join(path_fmt_lst)
+                i_p = i_s = i_t = html.escape(str(i))
 
-        path_anchor_lst = [] if not anchor_root else [anchor_root]
-        for i in child["path"]:
-            if i == MapValue():
-                i = empty_map_str
-            elif i == ListValue():
-                i = empty_lst_str
-            else:
-                i = html.escape(str(i))
-            path_anchor_lst.append(str(i))
+            path_lst.append(str(i_p))
+            sec_ID_lst.append(str(i_s))
+            title_lst.append(str(i_t))
 
-        path_anchor = "vld-" + "-".join(path_anchor_lst)
-        path_title = " → ".join(path_anchor_lst)
-        head_anchor = f"#{path_anchor}"
+        sec_id = "vld-" + "-".join(sec_ID_lst)
+        head_anchor = f"#{sec_id}"
+        path_title = " → ".join(title_lst)
+        child_html += f'<section class="valida-tree-section" id="{sec_id}">'
 
-        out += f'<section class="valida-tree-section" id={path_anchor}>'
+        if path_lst:
+            if _depth > 0 or (_depth == 0 and show_root_heading):
+                head_lev = heading_start_level + _depth
+                path_fmt_final = path_lst[-1]
+                child_html += (
+                    f'<div class="valida-tree path-name"><h{head_lev} title='
+                    f'"{path_title}">{path_fmt_final}<a class="headerlink" href='
+                    f'"{head_anchor}">#</a></h{head_lev}></div>'
+                )
 
-        if path_fmt:
-            head_lev = len(child["path"]) + 1
-            path_fmt_final = f"{path_fmt_lst[-1]}"  # not showing whole path?
-            out += f'<div class="valida-tree path-name"><h{head_lev} title="{path_title}">{path_fmt_final}<a class="headerlink" href="{head_anchor}">#</a></h{head_lev}></div>'
-
-        out += f'<div class="valida-tree node-info">'
-        out += f'<div class="valida-tree node-metadata">'
+        child_html += f'<div class="valida-tree node-info">'
+        child_html += f'<div class="valida-tree node-metadata">'
         type_line_lst = []
         chd_type = child.get("type_fmt")
         chd_key_type = child.get("key_type_fmt")
+        chd_val_type = child.get("map_value_type_fmt")
+        chd_list_type = child.get("list_value_type_fmt")
         chd_cnd = child.get("condition")
         if chd_type:
             chd_type = str(chd_type)
             type_line_lst.append(
-                f'<span class="valida-tree type-name">type: {html.escape(chd_type)}</span>'
+                f'<span class="valida-tree type-name">type: '
+                f"{html.escape(chd_type)}</span>"
             )
             if chd_key_type:
                 chd_key_type = str(chd_key_type)
@@ -110,44 +147,68 @@ def write_tree_html(tree, _path=None, anchor_root: str = None):
                     f' <span class="valida-tree key-type-name">(key: '
                     f"{html.escape(chd_key_type)})</span>"
                 )
+            if chd_val_type:
+                chd_val_type = str(chd_val_type)
+                type_line_lst[-1] += (
+                    f' <span class="valida-tree map-val-type-name">(value: '
+                    f"{html.escape(chd_val_type)})</span>"
+                )
+            if chd_list_type:
+                chd_list_type = str(chd_list_type)
+                type_line_lst[-1] += (
+                    f' <span class="valida-tree list-type-name">(of: '
+                    f"{html.escape(chd_list_type)})</span>"
+                )
 
-        chd_req = child.get("required")
-        if _path is None:
-            chd_req = True
-
-        type_line_lst.append(
-            f'<span class="valida-tree required-name">{"required" if chd_req else "optional"}</span>'
-        )
-
-        out += ", ".join(type_line_lst)
-
-        if not chd_type and chd_cnd:
-            chd_cnd = str(chd_cnd)
-            out += (
-                f'<div class="tree condition">Condition: {html.escape(chd_cnd)}</div>'
+        if _path is not None:
+            chd_req = child.get("required")
+            type_line_lst.append(
+                f'<span class="valida-tree required-name">'
+                f'{"required" if chd_req else "optional"}</span>'
             )
-        out += "</div>"  # node-metadata
+
+        child_html += ", ".join(type_line_lst)
+
+        chd_cnd = str(chd_cnd)
+        child_html += (
+            f'<div class="valida-tree condition">Condition: <code>'
+            f"{html.escape(chd_cnd)}</code></div>"
+        )
+        child_html += "</div>"  # node-metadata
 
         chd_doc = child.get("doc")
         if chd_doc:
-            for doc_para in chd_doc:
+            for doc_para in chd_doc["description"]:
                 # search for back ticks and replace with `<code>` tags:
                 doc_para = html.escape(doc_para)
                 doc_para = re.sub(r"`(.*?)`", r"<code>\1</code>", doc_para)
-                out += f'<p class="valida-tree doc">{doc_para}</p>'
-        out += "</div>"  # node-info
+                child_html += f'<p class="valida-tree doc">{doc_para}</p>'
+            for doc_ex in chd_doc["examples"]:
+                doc_ex = html.escape(doc_ex)
+                doc_ex = re.sub(r"`(.*?)`", r"<code>\1</code>", doc_ex)
+                child_html += (
+                    f'<p class="valida-tree doc-example"><span class='
+                    f'"valida-tree doc-example-name">Example: </span>{doc_ex}</p>'
+                )
+        child_html += "</div>"  # node-info
 
         if "children" in child:
-            out += write_tree_html(
+            child_html += write_tree_html(
                 child["children"],
                 _path=child["path"],
                 anchor_root=anchor_root,
+                heading_start_level=heading_start_level,
+                _depth=_depth + 1,
             )
 
-        out += "</section>"
-        out += "</div>"
+        child_html += "</section>"
+        child_html += "</div>"
+        children_html += child_html
 
-    out += "</div>"
+    out = ""
+    if children_html:
+        out = node_html + children_html + "</div>"
+
     return out
 
 
@@ -263,23 +324,8 @@ class Schema:
             items[path_str]["path"] = path_simple
             items[path_str]["doc"] = rule.doc
 
-            # add parent types that are implicitly defined:
-            imp_types = rule.path.resolve_implicit_types()
-            if imp_types:
-                for idx, imp_type in enumerate(imp_types):
-                    if idx == 0:
-                        parent_path = []
-                    else:
-                        parent_path = rule.path.parts[len(from_path_str) : idx]
-                    parent_path_str = tuple(str(i) for i in parent_path)
-
-                    if parent_path_str not in items:
-                        items[parent_path_str] = {}
-                    items[parent_path_str]["type"] = IMP_TYPE_LOOKUP[imp_type]
-                    items[parent_path_str]["type_fmt"] = items[parent_path_str]["type"]
-
-            key_conditions = rule.condition.get_always_applicable_key_conditions()
-            for key_cnd in key_conditions:
+            key_cnds = rule.condition.get_always_applicable_key_conditions()
+            for key_cnd in key_cnds:
                 for key in key_cnd.callable.args:
                     path_simple_i = tuple(list(path_simple) + [key])
                     path_i = rule.path[len(from_path_str) :] / DataPath(key)
@@ -290,19 +336,56 @@ class Schema:
                         key_cnd.callable.name == "required_keys"
                     )
 
-            kv_conditions = rule.condition.get_always_applicable_type_like_conditions()
-            if kv_conditions["key_data_type"]:
-                items[path_str]["key_type"] = kv_conditions["key_data_type"]
+            type_cnds = rule.condition.get_always_applicable_type_like_conditions()
+            if type_cnds["key_data_type"]:
+                items[path_str]["key_type"] = type_cnds["key_data_type"]
                 items[path_str][
                     "key_type_fmt"
                 ] = format_map_key_value_data_type_conditions(
                     items[path_str]["key_type"]
                 )
-            if kv_conditions["value_data_type"]:
-                items[path_str]["type"] = kv_conditions["value_data_type"]
+            if type_cnds["value_data_type"]:
+                items[path_str]["type"] = type_cnds["value_data_type"]
                 items[path_str]["type_fmt"] = format_map_key_value_data_type_conditions(
                     items[path_str]["type"]
                 )
+
+            # add parent container type that is implicitly defined:
+            imp_types = rule.path.resolve_implicit_types()
+            if imp_types:
+                par_implicit_type = imp_types[-1]
+
+                if len(imp_types) == 1:
+                    parent_path = DataPath()
+                else:
+                    parent_path = rule.path[len(from_path_str) : -1]
+
+                parent_path_str = tuple(str(i) for i in parent_path.parts)
+
+                if parent_path_str not in items:
+                    items[parent_path_str] = {}
+
+                if not items[parent_path_str].get("type"):
+                    items[parent_path_str]["type"] = IMP_TYPE_LOOKUP[par_implicit_type]
+                    items[parent_path_str]["type_fmt"] = items[parent_path_str]["type"]
+
+                if "type" in items[path_str] and rule.path.parts[-1] == ListValue():
+                    # this rule's type conditions can be contained in the parent node,
+                    # since they apply for all list values:
+                    items[parent_path_str]["list_value_type"] = items[path_str]["type"]
+                    items[parent_path_str]["list_value_type_fmt"] = items[path_str][
+                        "type_fmt"
+                    ]
+                    items[path_str]["type_info_in_parent"] = True
+
+                if "type" in items[path_str] and rule.path.parts[-1] == MapValue():
+                    # this rule's type conditions can be contained in the parent node,
+                    # since they apply for all list values:
+                    items[parent_path_str]["map_value_type"] = items[path_str]["type"]
+                    items[parent_path_str]["map_value_type_fmt"] = items[path_str][
+                        "type_fmt"
+                    ]
+                    items[path_str]["type_info_in_parent"] = True
 
         # convert to a list with parent references
         items_lst = []
