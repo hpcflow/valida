@@ -264,7 +264,7 @@ class Schema:
             items[path_str]["doc"] = rule.doc
 
             # add parent types that are implicitly defined:
-            imp_types = rule.path.resolve_implicit_types()[len(from_path_str) :]
+            imp_types = rule.path.resolve_implicit_types()
             if imp_types:
                 for idx, imp_type in enumerate(imp_types):
                     if idx == 0:
