@@ -1,5 +1,5 @@
 import copy
-from typing import List, Optional
+from typing import Dict, Optional
 from valida.conditions import ConditionLike
 from valida.casting import CAST_DTYPE_LOOKUP, CAST_LOOKUP
 from valida.data import Data, set_datum
@@ -8,7 +8,7 @@ from valida.errors import MalformedRuleSpec
 
 
 class Rule:
-    def __init__(self, path, condition, cast=None, doc: Optional[List[str]] = None):
+    def __init__(self, path, condition, cast=None, doc: Optional[Dict] = None):
         if not isinstance(path, DataPath):
             path = DataPath(*path)
 
@@ -41,12 +41,27 @@ class Rule:
         doc = spec.get("doc")
 
         if doc:
-            if not isinstance(doc, list):
-                doc = [doc]
+            if not isinstance(doc, dict):
+                if isinstance(doc, str):
+                    doc = [doc]
+
+                if isinstance(doc, list):
+                    doc = {"description": doc, "examples": []}
+
+            elif isinstance(doc["description"], str):
+                doc["description"] = [doc["description"]]
+
+            if "description" not in doc:
+                doc["description"] = []
+
+            if "examples" not in doc:
+                doc["examples"] = []
 
             # strip final new lines:
-            for idx, i in enumerate(doc):
-                doc[idx] = i.strip()
+            for idx, desc_i in enumerate(doc["description"]):
+                doc["description"][idx] = desc_i.strip()
+            for idx, ex_i in enumerate(doc["examples"]):
+                doc["examples"][idx] = ex_i.strip()
 
         cast = spec.get("cast")
         for cast_from in list((cast or {}).keys()):
