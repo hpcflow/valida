@@ -1,4 +1,16 @@
 
+<a name="v0.7.0"></a>
+## [v0.7.0](https://github.com/hpcflow/valida/compare/v0.6.0...v0.7.0) - 2023.05.28
+
+### ✨ Features
+
+* refinements to Schema.to_tree and write_tree_html
+
+### 🐛 Bug Fixes
+
+* incorrect implicit parent type when to_tree from_path specified
+
+
 <a name="v0.6.0"></a>
 ## [v0.6.0](https://github.com/hpcflow/valida/compare/v0.5.2...v0.6.0) - 2023.05.26
 
