@@ -1,4 +1,16 @@
 
+<a name="v0.7.1"></a>
+## [v0.7.1](https://github.com/hpcflow/valida/compare/v0.7.0...v0.7.1) - 2023.07.03
+
+### 🐛 Bug Fixes
+
+* bumps python version upper bound to <4.0.0
+
+### 👷 Build changes
+
+* bumps python version upper bound to <4.0.0
+
+
 <a name="v0.7.0"></a>
 ## [v0.7.0](https://github.com/hpcflow/valida/compare/v0.6.0...v0.7.0) - 2023.05.28
 
