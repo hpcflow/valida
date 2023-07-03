@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.12"
+python = ">=3.8,<4.0.0"
 "ruamel.yaml" = "^0.17.20"
 
 [tool.poetry.dev-dependencies]
