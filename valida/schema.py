@@ -390,7 +390,7 @@ class Schema:
         # convert to a list with parent references
         items_lst = []
         parent_refs = {tuple(): -1}
-        for k, v in items.items():
+        for k, v in sorted(items.items()):
             parent_path = k[:-1]
             v["parent"] = parent_refs[parent_path]
             v["path_str"] = k
