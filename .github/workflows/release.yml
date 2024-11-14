@@ -41,8 +41,9 @@ jobs:
         id: get_new_tag
         run: |
           NEW_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
+          echo "NEW_TAG is: $NEW_TAG"
           echo "new_tag=$NEW_TAG" >> $GITHUB_ENV
-          echo "{new_tag_name}={$NEW_TAG}" >> $GITHUB_OUTPUT
+          echo "::set-output name=new_tag_name::$NEW_TAG"
 
       - name: Generate CHANGELOG
         run: |
