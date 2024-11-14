@@ -1,4 +1,16 @@
 
+<a name="v0.7.3"></a>
+## [v0.7.3](https://github.com/hpcflow/valida/compare/v0.7.2...v0.7.3) - 2024.11.14
+
+### 🐛 Bug Fixes
+
+* use checkout token
+* bump a checkout GHA
+* use hpcflow-actions user in release workflow
+* bump GHA versions
+* bump deps
+
+
 <a name="v0.7.2"></a>
 ## [v0.7.2](https://github.com/hpcflow/valida/compare/v0.7.1...v0.7.2) - 2023.08.17
 
