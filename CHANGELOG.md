@@ -1,4 +1,12 @@
 
+<a name="v0.7.5"></a>
+## [v0.7.5](https://github.com/hpcflow/valida/compare/v0.7.4...v0.7.5) - 2024.11.14
+
+### 🐛 Bug Fixes
+
+* try to fix release workflow
+
+
 <a name="v0.7.4"></a>
 ## [v0.7.4](https://github.com/hpcflow/valida/compare/v0.7.3...v0.7.4) - 2024.11.14
 
