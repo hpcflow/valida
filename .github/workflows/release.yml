@@ -13,8 +13,8 @@ jobs:
           fetch-depth: 0 # get all history and tags
 
       - run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
+          git config user.name hpcflow-actions
+          git config user.email hpcflow-actions@users.noreply.github.com
 
       - uses: actions/setup-python@v5
         with:
