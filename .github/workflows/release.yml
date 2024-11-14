@@ -8,7 +8,7 @@ jobs:
     outputs:
       new_tag_name: ${{ steps.get_new_tag.outputs.new_tag_name }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # get all history and tags
 
@@ -16,7 +16,7 @@ jobs:
           git config user.name github-actions
           git config user.email github-actions@github.com
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
@@ -41,7 +41,7 @@ jobs:
         run: |
           NEW_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
           echo "new_tag=$NEW_TAG" >> $GITHUB_ENV
-          echo "::set-output name=new_tag_name::$NEW_TAG"
+          echo "{new_tag_name}={$NEW_TAG}" >> $GITHUB_OUTPUT
 
       - name: Generate CHANGELOG
         run: |
@@ -59,7 +59,7 @@ jobs:
           ./git-chglog --template .chglog/RELEASE.tpl.md --output CHANGELOG_increment.md ${{ env.new_tag }}
           cat CHANGELOG_increment.md
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: CHANGELOG_increment
           path: CHANGELOG_increment.md
@@ -68,11 +68,11 @@ jobs:
     needs: [bump-version]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: ${{ github.ref }} # otherwise we get the ref when the workflow started (missing above commit)
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
@@ -85,7 +85,7 @@ jobs:
           poetry config installer.modern-installation false
 
       - name: Cache the virtualenv
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ./.venv
           key: venv-${{ hashFiles('**/poetry.lock') }}
@@ -99,7 +99,7 @@ jobs:
 
       - run: mkdir release-artifacts
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         id: download_executables
         with:
           path: release-artifacts
