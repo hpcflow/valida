@@ -1,4 +1,12 @@
 
+<a name="v0.7.4"></a>
+## [v0.7.4](https://github.com/hpcflow/valida/compare/v0.7.3...v0.7.4) - 2024.11.14
+
+### 🐛 Bug Fixes
+
+* try to set new tag output in release workflow
+
+
 <a name="v0.7.3"></a>
 ## [v0.7.3](https://github.com/hpcflow/valida/compare/v0.7.2...v0.7.3) - 2024.11.14
 
